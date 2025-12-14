@@ -1,29 +1,37 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   StyleSheet,
   Text,
   View,
   FlatList,
-  Image,
   ActivityIndicator,
-  TextInput,
   TouchableOpacity,
-  Dimensions,
   StatusBar,
+  ScrollView,
+  Image,
+  RefreshControl,
+  Dimensions,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { API_BASE_URL } from "../config";
+import KostCard from "../components/KostCard";
+import BottomNavigator from "../components/BottomNavigator";
+import Carousel from "../components/Carousel"; // Pastikan component ini sudah support isLocal
 
-// ⚠️ IP SESUAI DENGAN KODE TERAKHIR ANDA
-const IP_ADDRESS = "192.168.100.252";
-const PORT = "8000";
-const API_URL = `http://${IP_ADDRESS}:${PORT}/kosts.php`;
-const IMAGE_URL = `http://${IP_ADDRESS}:${PORT}/images/`;
+const { width } = Dimensions.get("window");
+
+// --- 1. SIAPKAN GAMBAR LOKAL ---
+const localPromoImages = [
+  require("../../assets/images/gambar1.jpeg"),
+  require("../../assets/images/gambar2.jpeg"),
+  require("../../assets/images/gambar3.jpeg"),
+];
 
 export default function HomeScreen({ navigation }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Fungsi untuk refresh data otomatis saat kembali ke halaman ini
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
       fetchData();
@@ -33,165 +41,142 @@ export default function HomeScreen({ navigation }) {
 
   const fetchData = async () => {
     try {
-      const response = await fetch(API_URL);
+      const response = await fetch(`${API_BASE_URL}kosts.php`);
       const json = await response.json();
-      if (json.status === "success") {
-        setData(json.data);
-      }
+      if (json.status === "success") setData(json.data);
     } catch (error) {
       console.error("Gagal ambil data:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // --- KOMPONEN HEADER ---
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData();
+  }, []);
+
   const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <View style={styles.greenHeader}>
-        <View style={styles.topBar}>
-          <View style={styles.logoArea}>
-            <Text style={styles.logoText}>AnaKKost</Text>
+    <View style={{ paddingBottom: 20 }}>
+      {/* 1. HEADER HIJAU */}
+      <View style={styles.headerContainer}>
+        <View style={styles.greenHeader}>
+          <View style={styles.topBar}>
+            <View>
+              <Text style={styles.logoText}>AnaKKost</Text>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="location-sharp" size={14} color="#e8f5e9" />
+                <Text style={styles.locationText}>Malang, Jawa Timur</Text>
+              </View>
+            </View>
+            <View style={styles.iconArea}>
+              <TouchableOpacity style={styles.iconBtn}>
+                <Ionicons
+                  name="notifications-outline"
+                  size={24}
+                  color="white"
+                />
+                <View style={styles.notifBadge} />
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.iconArea}>
-            <TouchableOpacity>
-              <Ionicons
-                name="notifications-outline"
-                size={24}
-                color="white"
-                style={{ marginRight: 15 }}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity>
-              <Ionicons name="person-outline" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
+
+          <Text style={styles.greetingText}>Mau cari kos apa?</Text>
+          <Text style={styles.subGreetingText}>
+            Temukan hunian nyaman untuk istirahatmu.
+          </Text>
         </View>
 
-        <Text style={styles.greetingText}>Mau cari kos?</Text>
-        <Text style={styles.subGreetingText}>
-          Dapatkan info kost terlengkap di seluruh Indonesia
-        </Text>
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchCard}>
-        <View style={styles.searchInputContainer}>
-          <Ionicons
-            name="location-outline"
-            size={20}
-            color="#27ae60"
-            style={{ marginRight: 8 }}
-          />
-          <TextInput
-            placeholder="Cari lokasi kost..."
-            style={styles.searchInput}
-          />
+        {/* 2. SEARCH CARD (FLOATING) */}
+        <View style={styles.searchCard}>
           <TouchableOpacity
-            style={styles.searchInputContainer}
+            style={styles.searchInputButton}
             onPress={() => navigation.navigate("Search")}
-            activeOpacity={0.8}
+            activeOpacity={0.9}
           >
             <Ionicons
-              name="location-outline"
+              name="search"
               size={20}
               color="#27ae60"
-              style={{ marginRight: 8 }}
+              style={{ marginRight: 10 }}
             />
-            {/* PointerEvents none agar input tidak fokus di sini, tapi tombolnya yg jalan */}
-            <TextInput
-              placeholder="Cari lokasi kost..."
-              style={styles.searchInput}
-              editable={false} // Matikan ketik di sini
-              onPressIn={() => navigation.navigate("Search")}
-            />
-            <View style={styles.searchButton}>
-              <Text style={{ color: "white", fontWeight: "bold" }}>Cari</Text>
-            </View>
+            <Text style={{ color: "#aaa", flex: 1 }}>
+              Cari lokasi, nama kos...
+            </Text>
           </TouchableOpacity>
-        </View>
 
-        <View style={styles.filterContainer}>
-          <TouchableOpacity style={styles.filterItem}>
-            <Ionicons name="people-outline" size={20} color="#27ae60" />
-            <Text style={styles.filterText}>Tipe Kos</Text>
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.filterItem}>
-            <Ionicons name="pricetag-outline" size={20} color="#27ae60" />
-            <Text style={styles.filterText}>Harga</Text>
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.filterItem}>
-            <Ionicons name="options-outline" size={20} color="#27ae60" />
-            <Text style={styles.filterText}>Filter</Text>
-          </TouchableOpacity>
+          <View style={styles.filterContainer}>
+            <FilterShortcut icon="people-outline" label="Putra/Putri" />
+            <View style={styles.divider} />
+            <FilterShortcut icon="pricetag-outline" label="Harga" />
+            <View style={styles.divider} />
+            <FilterShortcut icon="options-outline" label="Filter" />
+          </View>
         </View>
       </View>
 
-      {/* Banner */}
-      <View style={styles.bannerContainer}>
-        <View style={styles.greenBanner} />
-      </View>
-
-      {/* Kategori */}
-      <Text style={styles.sectionTitle}>Kategori Properti</Text>
+      {/* 3. KATEGORI MENU */}
+      <Text style={styles.sectionTitle}>Kategori</Text>
       <View style={styles.categoryContainer}>
-        <CategoryItem icon="home" label="Kost" color="#4fc3f7" />
+        <CategoryItem
+          icon="home"
+          label="Kost"
+          color="#4fc3f7"
+          onPress={() => navigation.navigate("Search")}
+        />
         <CategoryItem
           icon="office-building"
           label="Apartemen"
           color="#ffb74d"
+          onPress={() => navigation.navigate("Search")}
         />
-        <CategoryItem icon="home-city" label="Rumah" color="#81c784" />
-        <CategoryItem icon="store" label="Ruko" color="#e57373" />
+        <CategoryItem
+          icon="home-city"
+          label="Rumah"
+          color="#81c784"
+          onPress={() => navigation.navigate("Search")}
+        />
+        <CategoryItem
+          icon="store"
+          label="Ruko"
+          color="#e57373"
+          onPress={() => navigation.navigate("Search")}
+        />
       </View>
 
-      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>
+      {/* 4. BANNER PROMO (MENGGUNAKAN CAROUSEL + GAMBAR LOKAL) */}
+      <Text style={styles.sectionTitle}>Promo Spesial</Text>
+      <View style={{ marginTop: 10 }}>
+        <Carousel
+          data={localPromoImages}
+          height={150}
+          isLocal={true} // Wajib true agar membaca require()
+        />
+      </View>
+
+      <Text style={[styles.sectionTitle, { marginTop: 10 }]}>
         Rekomendasi Kos
       </Text>
     </View>
   );
 
-  const CategoryItem = ({ icon, label, color }) => (
-    <View style={styles.categoryItem}>
-      <View style={[styles.categoryIconBg, { backgroundColor: color + "33" }]}>
+  const CategoryItem = ({ icon, label, color, onPress }) => (
+    <TouchableOpacity style={styles.categoryItem} onPress={onPress}>
+      <View style={[styles.categoryIconBg, { backgroundColor: color + "20" }]}>
         <MaterialCommunityIcons name={icon} size={28} color={color} />
       </View>
       <Text style={styles.categoryLabel}>{label}</Text>
-    </View>
+    </TouchableOpacity>
   );
 
-  // --- RENDERING ITEM LIST KOS (UPDATE: BISA DIKLIK) ---
-  const renderKostItem = ({ item }) => (
+  const FilterShortcut = ({ icon, label }) => (
     <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={() => navigation.navigate("DetailKos", { item: item })} // Navigasi ke Detail
+      style={styles.filterItem}
+      onPress={() => navigation.navigate("Search")}
     >
-      <View style={styles.card}>
-        <Image
-          source={{
-            uri: item.gambar
-              ? `${IMAGE_URL}${item.gambar}`
-              : "https://via.placeholder.com/300",
-          }}
-          style={styles.cardImage}
-        />
-        <View style={styles.cardContent}>
-          <View style={styles.tagContainer}>
-            <Text style={styles.tagText}>Campur</Text>
-            <Text style={styles.sisaText}>Sisa 2 Kamar</Text>
-          </View>
-          <Text style={styles.cardTitle}>{item.nama_kos}</Text>
-          <Text style={styles.cardLocation}>📍 {item.alamat}</Text>
-          <Text style={styles.cardPrice}>
-            Rp {parseInt(item.harga).toLocaleString("id-ID")} / bulan
-          </Text>
-          <Text style={styles.cardFasilitas} numberOfLines={1}>
-            {item.deskripsi}
-          </Text>
-        </View>
-      </View>
+      <Ionicons name={icon} size={18} color="#27ae60" />
+      <Text style={styles.filterText}>{label}</Text>
     </TouchableOpacity>
   );
 
@@ -207,84 +192,87 @@ export default function HomeScreen({ navigation }) {
         <FlatList
           data={data}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={renderKostItem}
+          renderItem={({ item }) => (
+            <KostCard
+              item={item}
+              onPress={() => navigation.navigate("DetailKos", { item: item })}
+            />
+          )}
           ListHeaderComponent={renderHeader}
-          contentContainerStyle={{ paddingBottom: 80 }}
+          contentContainerStyle={{ paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#27ae60"]}
+            />
+          }
+          ListEmptyComponent={
+            <View style={{ alignItems: "center", marginTop: 50 }}>
+              <MaterialCommunityIcons
+                name="home-search-outline"
+                size={60}
+                color="#ddd"
+              />
+              <Text style={{ color: "gray", marginTop: 10 }}>
+                Belum ada data kos.
+              </Text>
+            </View>
+          }
         />
       )}
-
-      {/* Bottom Navigation (UPDATE: BISA KLIK) */}
-      <View style={styles.bottomNav}>
-        <NavIcon name="home" label="Beranda" active onPress={() => {}} />
-        <NavIcon
-          name="magnify"
-          label="Cari"
-          onPress={() => navigation.navigate("Search")} // <-- Arahkan ke Search
-        />
-        <NavIcon name="heart-outline" label="Favorit" onPress={() => {}} />
-
-        {/* Tombol Pesanan Aktif */}
-        <NavIcon
-          name="file-document-outline"
-          label="Pesanan"
-          onPress={() => navigation.navigate("History")}
-        />
-
-        {/* Tombol Profil */}
-        <NavIcon
-          name="account-outline"
-          label="Profil"
-          onPress={() => navigation.navigate("Profile")} // <-- Arahkan ke Profile
-        />
-      </View>
+      <BottomNavigator navigation={navigation} activeScreen="Home" />
     </View>
   );
 }
 
-// Komponen Icon Navigasi (Update: Menerima onPress)
-const NavIcon = ({ name, label, active, onPress }) => (
-  <TouchableOpacity onPress={onPress} style={{ alignItems: "center", flex: 1 }}>
-    <MaterialCommunityIcons
-      name={name}
-      size={24}
-      color={active ? "#27ae60" : "gray"}
-    />
-    <Text
-      style={{ fontSize: 10, color: active ? "#27ae60" : "gray", marginTop: 3 }}
-    >
-      {label}
-    </Text>
-  </TouchableOpacity>
-);
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  container: { flex: 1, backgroundColor: "#f8f9fa" },
   centerLoading: { flex: 1, justifyContent: "center", alignItems: "center" },
 
-  // Header Styles
+  // Header
   greenHeader: {
     backgroundColor: "#27ae60",
     padding: 20,
+    paddingTop: 40,
     paddingBottom: 80,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
   },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 20,
-    marginTop: 10,
   },
   logoText: {
     color: "white",
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
-    fontStyle: "italic",
+    letterSpacing: 0.5,
   },
-  iconArea: { flexDirection: "row" },
+  locationText: { color: "#e8f5e9", fontSize: 12, marginLeft: 4 },
+
+  iconBtn: { position: "relative", padding: 5 },
+  notifBadge: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#e74c3c",
+    borderWidth: 1,
+    borderColor: "#27ae60",
+  },
+
   greetingText: { color: "white", fontSize: 24, fontWeight: "bold" },
-  subGreetingText: { color: "#e8f5e9", fontSize: 14, marginTop: 5 },
+  subGreetingText: {
+    color: "#e8f5e9",
+    fontSize: 14,
+    marginTop: 5,
+    opacity: 0.9,
+  },
 
   // Search Card
   searchCard: {
@@ -293,104 +281,56 @@ const styles = StyleSheet.create({
     marginTop: -50,
     borderRadius: 15,
     padding: 15,
-    elevation: 5,
+    elevation: 8,
     shadowColor: "#000",
     shadowOpacity: 0.1,
-    shadowRadius: 5,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
   },
-  searchInputContainer: {
+  searchInputButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f5f5f5",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    height: 45,
-    marginBottom: 15,
-  },
-  searchInput: { flex: 1, marginLeft: 5 },
-  searchButton: {
-    backgroundColor: "#27ae60",
+    borderRadius: 10,
     paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 8,
+    height: 50,
+    marginBottom: 15,
   },
   filterContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
   },
-  filterItem: { alignItems: "center", justifyContent: "center" },
-  filterText: { fontSize: 12, color: "#555", marginTop: 4 },
+  filterItem: {
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+  },
+  filterText: { fontSize: 12, color: "#555", marginLeft: 5, fontWeight: "500" },
   divider: { width: 1, height: 20, backgroundColor: "#eee" },
-
-  // Banner
-  bannerContainer: { paddingHorizontal: 20, marginTop: 20 },
-  greenBanner: { backgroundColor: "#4ade80", height: 120, borderRadius: 15 },
 
   // Categories
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
     marginLeft: 20,
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 25,
+    marginBottom: 15,
     color: "#333",
   },
   categoryContainer: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: 10,
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
   },
-  categoryItem: { alignItems: "center" },
+  categoryItem: { alignItems: "center", width: width / 5 },
   categoryIconBg: {
     width: 55,
     height: 55,
-    borderRadius: 18,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 5,
+    marginBottom: 8,
   },
-  categoryLabel: { fontSize: 12, color: "#555" },
-
-  // Kost List Card
-  card: {
-    backgroundColor: "white",
-    marginHorizontal: 20,
-    marginBottom: 15,
-    borderRadius: 12,
-    overflow: "hidden",
-    elevation: 3,
-  },
-  cardImage: { width: "100%", height: 150 },
-  cardContent: { padding: 12 },
-  tagContainer: { flexDirection: "row", marginBottom: 5 },
-  tagText: {
-    fontSize: 10,
-    color: "#27ae60",
-    backgroundColor: "#e8f5e9",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginRight: 5,
-    fontWeight: "bold",
-  },
-  sisaText: { fontSize: 10, color: "#e53935" },
-  cardTitle: { fontSize: 16, fontWeight: "bold", color: "#333" },
-  cardLocation: { fontSize: 12, color: "#777", marginVertical: 3 },
-  cardPrice: { fontSize: 14, fontWeight: "bold", color: "#333", marginTop: 5 },
-  cardFasilitas: { fontSize: 11, color: "#999" },
-
-  // Bottom Nav
-  bottomNav: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 10,
-    backgroundColor: "white",
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
+  categoryLabel: { fontSize: 12, color: "#555", fontWeight: "500" },
 });

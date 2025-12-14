@@ -1,18 +1,13 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, Alert, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// ⚠️ GANTI DENGAN IP KAMU TERAKHIR
-const IP_ADDRESS = "192.168.100.252";
-const API_URL = `http://${IP_ADDRESS}:8000/login.php`;
+// Import Config (Agar IP aman)
+import { API_BASE_URL } from "../config";
+
+// Import Komponen Baru
+import CustomInput from "../components/CustomInput";
+import CustomButton from "../components/CustomButton";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -22,19 +17,17 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     setLoading(true);
     try {
-      const response = await fetch(API_URL, {
+      // Gunakan API_BASE_URL dari config
+      const response = await fetch(`${API_BASE_URL}login.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email, password: password }), // Kirim JSON
+        body: JSON.stringify({ email, password }),
       });
 
       const json = await response.json();
 
       if (json.status === "success") {
-        // 1. SIMPAN DATA USER KE HP
         await AsyncStorage.setItem("user_data", JSON.stringify(json.data));
-
-        // 2. Pindah ke Halaman Profile (Otomatis tampilan berubah)
         Alert.alert("Berhasil", "Selamat datang " + json.data.name);
         navigation.replace("Home");
       } else {
@@ -51,32 +44,29 @@ export default function LoginScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Masuk Akun</Text>
-      <TextInput
-        style={styles.input}
+
+      {/* Pakai Komponen Input */}
+      <CustomInput
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
+        keyboardType="email-address"
       />
-      <TextInput
-        style={styles.input}
+
+      <CustomInput
         placeholder="Password"
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
+        secureTextEntry={true}
       />
 
-      <TouchableOpacity
-        style={styles.btn}
+      {/* Pakai Komponen Tombol (Warna Default Hijau) */}
+      <CustomButton
+        title="LOGIN SEKARANG"
         onPress={handleLogin}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.btnText}>LOGIN SEKARANG</Text>
-        )}
-      </TouchableOpacity>
+        loading={loading}
+      />
     </View>
   );
 }
@@ -95,20 +85,5 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     textAlign: "center",
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-    backgroundColor: "#f9f9f9",
-  },
-  btn: {
-    backgroundColor: "#27ae60",
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 10,
-  },
-  btnText: { color: "white", fontWeight: "bold", fontSize: 16 },
+  // Style input & btn sudah dihapus karena pindah ke component
 });

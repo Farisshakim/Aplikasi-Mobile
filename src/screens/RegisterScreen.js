@@ -1,16 +1,12 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, Alert, StyleSheet } from "react-native";
 
-const IP_ADDRESS = "192.168.100.252";
-const API_URL = `http://${IP_ADDRESS}:8000/register.php`;
+// Import Config
+import { API_BASE_URL } from "../config";
+
+// Import Komponen Baru
+import CustomInput from "../components/CustomInput";
+import CustomButton from "../components/CustomButton";
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState("");
@@ -21,7 +17,7 @@ export default function RegisterScreen({ navigation }) {
   const handleRegister = async () => {
     setLoading(true);
     try {
-      const response = await fetch(API_URL, {
+      const response = await fetch(`${API_BASE_URL}register.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
@@ -30,7 +26,7 @@ export default function RegisterScreen({ navigation }) {
 
       if (json.status === "success") {
         Alert.alert("Sukses", "Akun berhasil dibuat! Silakan Login.");
-        navigation.goBack(); // Kembali ke halaman Login/Profile
+        navigation.goBack();
       } else {
         Alert.alert("Gagal", json.message || "Gagal mendaftar");
       }
@@ -44,38 +40,35 @@ export default function RegisterScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Buat Akun Baru</Text>
-      <TextInput
-        style={styles.input}
+
+      <CustomInput
         placeholder="Nama Lengkap"
         value={name}
         onChangeText={setName}
       />
-      <TextInput
-        style={styles.input}
+
+      <CustomInput
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
+        keyboardType="email-address"
       />
-      <TextInput
-        style={styles.input}
+
+      <CustomInput
         placeholder="Password"
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
+        secureTextEntry={true}
       />
 
-      <TouchableOpacity
-        style={styles.btn}
+      {/* Pakai Komponen Tombol dengan Warna Biru Gelap */}
+      <CustomButton
+        title="DAFTAR"
         onPress={handleRegister}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.btnText}>DAFTAR</Text>
-        )}
-      </TouchableOpacity>
+        loading={loading}
+        color="#34495e" // <-- Custom Warna
+      />
     </View>
   );
 }
@@ -90,24 +83,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#34495e",
+    color: "#34495e", // Warna judul disamakan dengan tombol
     marginBottom: 30,
     textAlign: "center",
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-    backgroundColor: "#f9f9f9",
-  },
-  btn: {
-    backgroundColor: "#34495e",
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 10,
-  },
-  btnText: { color: "white", fontWeight: "bold", fontSize: 16 },
 });
