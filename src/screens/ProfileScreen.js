@@ -176,6 +176,19 @@ export default function ProfileScreen({ navigation }) {
             onPress={handleLogout}
           />
         </View>
+
+        <Text style={styles.sectionTitle}>Area Pemilik Kos</Text>
+        <View style={styles.menuGroup}>
+          <MenuItem
+            icon="add-circle-outline"
+            label="Sewakan Kost Anda"
+            subLabel="Tambah iklan kost baru"
+            onPress={() => navigation.navigate("AddKost")}
+          />
+        </View>
+        {/* --------------------------- */}
+
+        <Text style={styles.sectionTitle}>Lainnya</Text>
         <View style={{ height: 80 }} />
       </ScrollView>
 

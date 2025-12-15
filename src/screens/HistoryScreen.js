@@ -15,9 +15,10 @@ import {
   RefreshControl,
   StatusBar,
   Modal,
-  ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL, IMAGE_URL } from "../config";
 import BottomNavigator from "../components/BottomNavigator";
 
@@ -27,25 +28,54 @@ export default function HistoryScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("Berlangsung");
+  const [user, setUser] = useState(null);
 
-  // State untuk Struk/Tiket
+  // State Modal Tiket
   const [ticketVisible, setTicketVisible] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
 
-  // --- TAMBAHAN BARU: MATIKAN HEADER BAWAAN (TOMBOL BACK) ---
+  // Matikan Header Bawaan
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: false, // Ini yang menghapus navigasi kembali (Panah Kiri)
-    });
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
-  // -----------------------------------------------------------
 
-  const fetchHistory = async () => {
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      checkSessionAndFetch();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useEffect(() => {
+    filterData();
+  }, [activeTab, masterData]);
+
+  const checkSessionAndFetch = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}bookings.php`);
+      const session = await AsyncStorage.getItem("userSession");
+      if (session) {
+        const userData = JSON.parse(session);
+        setUser(userData);
+        fetchHistory(userData.id);
+      } else {
+        setLoading(false);
+        setMasterData([]);
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const fetchHistory = async (idUser) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}bookings.php?id_user=${idUser}`
+      );
       const json = await response.json();
       if (json.status === "success") {
         setMasterData(json.data);
+      } else {
+        setMasterData([]);
       }
     } catch (e) {
       console.log(e);
@@ -55,27 +85,20 @@ export default function HistoryScreen({ navigation }) {
     }
   };
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", () => {
-      fetchHistory();
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  useEffect(() => {
-    filterData();
-  }, [activeTab, masterData]);
-
   const filterData = () => {
     if (activeTab === "Berlangsung") {
       const data = masterData.filter(
-        (item) => !item.status || item.status === "Pending"
+        (item) =>
+          item.status === "Pending" ||
+          item.status === "Menunggu Pembayaran" ||
+          item.status === "dibayar"
       );
       setFilteredData(data);
     } else {
       const data = masterData.filter(
         (item) =>
           item.status === "Confirmed" ||
+          item.status === "LUNAS" ||
           item.status === "Selesai" ||
           item.status === "Dibatalkan"
       );
@@ -85,26 +108,47 @@ export default function HistoryScreen({ navigation }) {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchHistory();
-  }, []);
+    if (user) fetchHistory(user.id);
+  }, [user]);
 
-  const handleCancel = (id) => {
-    Alert.alert("Batalkan?", "Yakin ingin membatalkan pesanan ini?", [
-      { text: "Tidak" },
-      {
-        text: "Ya, Batalkan",
-        onPress: async () => {
-          await fetch(`${API_BASE_URL}bookings.php?id=${id}`, {
-            method: "DELETE",
-          });
-          fetchHistory();
+  // --- FUNGSI HAPUS PESANAN/STRUK ---
+  const handleDelete = (id) => {
+    Alert.alert(
+      "Hapus Riwayat",
+      "Apakah Anda yakin ingin menghapus struk ini dari riwayat?",
+      [
+        { text: "Batal", style: "cancel" },
+        {
+          text: "HAPUS",
+          style: "destructive", // Merah
+          onPress: async () => {
+            try {
+              const formData = new FormData();
+              formData.append("id_booking", id);
+
+              const response = await fetch(
+                `${API_BASE_URL}delete_booking.php`,
+                {
+                  method: "POST",
+                  body: formData,
+                  headers: { "Content-Type": "multipart/form-data" },
+                }
+              );
+
+              const json = await response.json();
+              if (json.status === "success") {
+                // Refresh data setelah hapus
+                if (user) fetchHistory(user.id);
+              } else {
+                Alert.alert("Gagal", json.message);
+              }
+            } catch (e) {
+              Alert.alert("Error", "Gagal koneksi ke server");
+            }
+          },
         },
-      },
-    ]);
-  };
-
-  const handlePay = (item) => {
-    navigation.navigate("Payment", { item: item });
+      ]
+    );
   };
 
   const openTicket = (item) => {
@@ -117,50 +161,74 @@ export default function HistoryScreen({ navigation }) {
     let statusColor = "#f39c12";
     let statusBg = "#fdf2e9";
 
-    if (statusLabel === "Confirmed") {
+    // Logika Warna Status
+    if (["Confirmed", "LUNAS", "Selesai"].includes(statusLabel)) {
       statusLabel = "LUNAS";
       statusColor = "#27ae60";
       statusBg = "#e8f5e9";
     } else if (statusLabel === "Dibatalkan") {
       statusColor = "#e74c3c";
       statusBg = "#fce4ec";
+    } else if (statusLabel === "dibayar") {
+      statusLabel = "Menunggu Konfirmasi";
+      statusColor = "#2980b9";
+      statusBg = "#e3f2fd";
     }
 
     const renderActions = () => {
-      if (statusLabel === "Menunggu Pembayaran" || statusLabel === "Pending") {
+      // TAMPILAN TAB BERLANGSUNG
+      if (activeTab === "Berlangsung") {
         return (
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={styles.btnOutline}
-              onPress={() => handleCancel(item.id)}
+              onPress={() => handleDelete(item.id)}
             >
               <Text style={styles.btnTextOutline}>Batalkan</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.btnSolid}
-              onPress={() => handlePay(item)}
+              onPress={() => navigation.navigate("Payment", { item })}
             >
               <Text style={styles.btnTextSolid}>Bayar Sekarang</Text>
             </TouchableOpacity>
           </View>
         );
-      } else if (statusLabel === "LUNAS" || statusLabel === "Confirmed") {
+      }
+
+      // TAMPILAN TAB SELESAI (Ada Tombol Hapus Struk)
+      else {
         return (
-          <TouchableOpacity
-            style={styles.btnTicket}
-            onPress={() => openTicket(item)}
-          >
-            <MaterialCommunityIcons
-              name="ticket-confirmation-outline"
-              size={18}
-              color="white"
-              style={{ marginRight: 8 }}
-            />
-            <Text style={styles.btnTextSolid}>Lihat Detail Tiket</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", marginTop: 10 }}>
+            {/* Tombol Lihat Tiket (Hanya jika LUNAS) */}
+            {statusLabel === "LUNAS" && (
+              <TouchableOpacity
+                style={styles.btnTicket}
+                onPress={() => openTicket(item)}
+              >
+                <MaterialCommunityIcons
+                  name="ticket-confirmation-outline"
+                  size={18}
+                  color="white"
+                  style={{ marginRight: 5 }}
+                />
+                <Text style={styles.btnTextSolid}>Lihat Tiket</Text>
+              </TouchableOpacity>
+            )}
+
+            <View style={{ width: 10 }} />
+
+            {/* Tombol Hapus (Sampah) */}
+            <TouchableOpacity
+              style={styles.btnDelete}
+              onPress={() => handleDelete(item.id)}
+            >
+              <Ionicons name="trash-outline" size={18} color="#e74c3c" />
+              <Text style={styles.textDelete}>Hapus</Text>
+            </TouchableOpacity>
+          </View>
         );
       }
-      return null;
     };
 
     return (
@@ -168,8 +236,8 @@ export default function HistoryScreen({ navigation }) {
         <View style={styles.cardHeader}>
           <Image
             source={{
-              uri: item.gambar
-                ? `${IMAGE_URL}${item.gambar}`
+              uri: item.gambar_kos
+                ? `${IMAGE_URL}${item.gambar_kos}`
                 : "https://via.placeholder.com/150",
             }}
             style={styles.thumb}
@@ -207,9 +275,7 @@ export default function HistoryScreen({ navigation }) {
 
       {/* HEADER TABS */}
       <View style={styles.topTabsContainer}>
-        {/* JUDUL HALAMAN (Custom Header) */}
         <Text style={styles.headerTitle}>Pesanan Saya</Text>
-
         <View style={styles.tabsWrapper}>
           <TouchableOpacity
             style={[
@@ -246,7 +312,7 @@ export default function HistoryScreen({ navigation }) {
         </View>
       </View>
 
-      {/* LIST */}
+      {/* LIST DATA */}
       <FlatList
         data={filteredData}
         keyExtractor={(item) => item.id.toString()}
@@ -262,7 +328,7 @@ export default function HistoryScreen({ navigation }) {
               size={60}
               color="#ddd"
             />
-            <Text style={styles.emptyText}>Tidak ada data</Text>
+            <Text style={styles.emptyText}>Tidak ada data pesanan.</Text>
           </View>
         }
       />
@@ -284,7 +350,7 @@ export default function HistoryScreen({ navigation }) {
               />
               <Text style={styles.ticketTitle}>Pembayaran Berhasil</Text>
               <Text style={styles.ticketSubtitle}>
-                Terima kasih telah melakukan pemesanan
+                Tunjukkan ini saat Check-in
               </Text>
             </View>
 
@@ -293,17 +359,17 @@ export default function HistoryScreen({ navigation }) {
                 <View style={{ alignItems: "center", marginVertical: 10 }}>
                   <Image
                     source={{
-                      uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/QR_code_for_mobile_English_Wikipedia.svg/1200px-QR_code_for_mobile_English_Wikipedia.svg.png",
+                      uri:
+                        "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" +
+                        selectedTicket.id,
                     }}
-                    style={{ width: 80, height: 80 }}
+                    style={{ width: 100, height: 100 }}
                   />
-                  <Text style={{ fontSize: 10, color: "gray", marginTop: 5 }}>
-                    BOOKING ID: #{selectedTicket.id}
+                  <Text style={{ fontSize: 12, color: "gray", marginTop: 10 }}>
+                    ID: #{selectedTicket.id}
                   </Text>
                 </View>
-
                 <View style={styles.dashedLine} />
-
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Nama Kost</Text>
                   <Text style={styles.detailValue}>
@@ -311,13 +377,7 @@ export default function HistoryScreen({ navigation }) {
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Pemesan</Text>
-                  <Text style={styles.detailValue}>
-                    {selectedTicket.nama_pemesan}
-                  </Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Check In</Text>
+                  <Text style={styles.detailLabel}>Tgl Masuk</Text>
                   <Text style={styles.detailValue}>
                     {selectedTicket.tanggal_masuk}
                   </Text>
@@ -328,11 +388,9 @@ export default function HistoryScreen({ navigation }) {
                     {selectedTicket.lama_sewa} Bulan
                   </Text>
                 </View>
-
                 <View style={styles.dashedLine} />
-
                 <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>TOTAL BAYAR</Text>
+                  <Text style={styles.totalLabel}>TOTAL</Text>
                   <Text style={styles.totalValue}>
                     Rp{" "}
                     {parseInt(selectedTicket.total_harga).toLocaleString(
@@ -347,7 +405,7 @@ export default function HistoryScreen({ navigation }) {
               style={styles.closeTicketBtn}
               onPress={() => setTicketVisible(false)}
             >
-              <Text style={styles.closeTicketText}>Tutup Tiket</Text>
+              <Text style={styles.closeTicketText}>Tutup</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -362,7 +420,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
   topTabsContainer: {
     backgroundColor: "white",
-    paddingTop: 30,
+    paddingTop: 40,
     paddingBottom: 15,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
@@ -438,13 +496,32 @@ const styles = StyleSheet.create({
   },
   btnTextSolid: { color: "white", fontWeight: "bold", fontSize: 12 },
 
+  // STYLE TOMBOL TIKET DAN HAPUS
   btnTicket: {
+    flex: 1,
     backgroundColor: "#27ae60",
     paddingVertical: 10,
     borderRadius: 6,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
+  },
+  btnDelete: {
+    flex: 0.4,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ffebee",
+    paddingVertical: 10,
+    borderRadius: 6,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  textDelete: {
+    color: "#e74c3c",
+    fontWeight: "bold",
+    fontSize: 12,
+    marginLeft: 4,
   },
 
   modalOverlay: {
@@ -479,7 +556,6 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderStyle: "dashed",
     marginVertical: 15,
-    borderRadius: 1,
   },
   detailRow: {
     flexDirection: "row",
@@ -511,7 +587,6 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
   },
   closeTicketText: { color: "#555", fontWeight: "bold" },
-
   emptyContainer: { alignItems: "center", marginTop: 100 },
   emptyText: { marginTop: 10, color: "gray" },
 });

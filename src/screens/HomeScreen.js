@@ -7,20 +7,22 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   StatusBar,
-  ScrollView,
   Image,
   RefreshControl,
   Dimensions,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { API_BASE_URL } from "../config";
-import KostCard from "../components/KostCard";
+import { useFocusEffect } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// --- IMPORT KOMPONEN ---
+import Carousel from "../components/Carousel"; // Pastikan file ini sudah diperbarui dengan fitur autoPlay
 import BottomNavigator from "../components/BottomNavigator";
-import Carousel from "../components/Carousel"; // Pastikan component ini sudah support isLocal
+import { API_BASE_URL, IMAGE_URL } from "../config";
 
 const { width } = Dimensions.get("window");
 
-// --- 1. SIAPKAN GAMBAR LOKAL ---
+// --- GAMBAR PROMO (LOKAL) ---
 const localPromoImages = [
   require("../../assets/images/gambar1.jpeg"),
   require("../../assets/images/gambar2.jpeg"),
@@ -31,19 +33,35 @@ export default function HomeScreen({ navigation }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      checkUser();
+    }, [])
+  );
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", () => {
-      fetchData();
-    });
-    return unsubscribe;
-  }, [navigation]);
+    fetchData();
+  }, []);
+
+  const checkUser = async () => {
+    try {
+      const value = await AsyncStorage.getItem("user_data"); // Pastikan key sesuai LoginScreen ("user_data")
+      setUser(value ? JSON.parse(value) : null);
+    } catch (e) {
+      console.log(e);
+    }
+  };
 
   const fetchData = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}kosts.php`);
       const json = await response.json();
-      if (json.status === "success") setData(json.data);
+
+      if (json.status === "success") {
+        setData(json.data);
+      }
     } catch (error) {
       console.error("Gagal ambil data:", error);
     } finally {
@@ -57,9 +75,10 @@ export default function HomeScreen({ navigation }) {
     fetchData();
   }, []);
 
+  // --- HEADER ---
   const renderHeader = () => (
     <View style={{ paddingBottom: 20 }}>
-      {/* 1. HEADER HIJAU */}
+      {/* Header Hijau */}
       <View style={styles.headerContainer}>
         <View style={styles.greenHeader}>
           <View style={styles.topBar}>
@@ -70,25 +89,30 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.locationText}>Malang, Jawa Timur</Text>
               </View>
             </View>
-            <View style={styles.iconArea}>
-              <TouchableOpacity style={styles.iconBtn}>
-                <Ionicons
-                  name="notifications-outline"
-                  size={24}
-                  color="white"
-                />
-                <View style={styles.notifBadge} />
-              </TouchableOpacity>
-            </View>
+
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => navigation.navigate(user ? "Profile" : "Login")}
+            >
+              <Image
+                source={{
+                  uri:
+                    user && user.gambar
+                      ? IMAGE_URL + user.gambar
+                      : "https://cdn-icons-png.flaticon.com/512/847/847969.png", // Placeholder default jika user belum login/tidak ada foto
+                }}
+                style={styles.profileIcon}
+              />
+            </TouchableOpacity>
           </View>
 
-          <Text style={styles.greetingText}>Mau cari kos apa?</Text>
-          <Text style={styles.subGreetingText}>
-            Temukan hunian nyaman untuk istirahatmu.
+          <Text style={styles.greetingText}>
+            Hai, {user ? user.name : "Tamu"}
           </Text>
+          <Text style={styles.subGreetingText}>Mau cari kos di mana?</Text>
         </View>
 
-        {/* 2. SEARCH CARD (FLOATING) */}
+        {/* Search Card */}
         <View style={styles.searchCard}>
           <TouchableOpacity
             style={styles.searchInputButton}
@@ -116,53 +140,56 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      {/* 3. KATEGORI MENU */}
+      {/* Kategori */}
       <Text style={styles.sectionTitle}>Kategori</Text>
       <View style={styles.categoryContainer}>
-        <CategoryItem
-          icon="home"
-          label="Kost"
-          color="#4fc3f7"
-          onPress={() => navigation.navigate("Search")}
-        />
+        <CategoryItem icon="home" label="Kost" color="#4fc3f7" />
         <CategoryItem
           icon="office-building"
           label="Apartemen"
           color="#ffb74d"
-          onPress={() => navigation.navigate("Search")}
         />
-        <CategoryItem
-          icon="home-city"
-          label="Rumah"
-          color="#81c784"
-          onPress={() => navigation.navigate("Search")}
-        />
-        <CategoryItem
-          icon="store"
-          label="Ruko"
-          color="#e57373"
-          onPress={() => navigation.navigate("Search")}
-        />
+        <CategoryItem icon="home-city" label="Rumah" color="#81c784" />
+        <CategoryItem icon="store" label="Ruko" color="#e57373" />
       </View>
 
-      {/* 4. BANNER PROMO (MENGGUNAKAN CAROUSEL + GAMBAR LOKAL) */}
+      {/* Promo Spesial (Carousel Auto Play) */}
       <Text style={styles.sectionTitle}>Promo Spesial</Text>
       <View style={{ marginTop: 10 }}>
         <Carousel
           data={localPromoImages}
           height={150}
-          isLocal={true} // Wajib true agar membaca require()
+          isLocal={true}
+          autoPlay={true}
+          timer={3000}
         />
       </View>
 
-      <Text style={[styles.sectionTitle, { marginTop: 10 }]}>
-        Rekomendasi Kos
-      </Text>
+      {/* Judul Bagian Rekomendasi */}
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginTop: 25,
+          marginRight: 20,
+        }}
+      >
+        <Text style={[styles.sectionTitle, { marginTop: 0 }]}>
+          Rekomendasi Kos
+        </Text>
+        {/* Opsional: Tombol Lihat Semua jika ingin melihat sisa data */}
+        <TouchableOpacity onPress={() => navigation.navigate("Search")}>
+          <Text style={{ color: "#27ae60", fontSize: 12, fontWeight: "bold" }}>
+            Lihat Semua
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
-  const CategoryItem = ({ icon, label, color, onPress }) => (
-    <TouchableOpacity style={styles.categoryItem} onPress={onPress}>
+  const CategoryItem = ({ icon, label, color }) => (
+    <TouchableOpacity style={styles.categoryItem}>
       <View style={[styles.categoryIconBg, { backgroundColor: color + "20" }]}>
         <MaterialCommunityIcons name={icon} size={28} color={color} />
       </View>
@@ -171,33 +198,63 @@ export default function HomeScreen({ navigation }) {
   );
 
   const FilterShortcut = ({ icon, label }) => (
-    <TouchableOpacity
-      style={styles.filterItem}
-      onPress={() => navigation.navigate("Search")}
-    >
+    <TouchableOpacity style={styles.filterItem}>
       <Ionicons name={icon} size={18} color="#27ae60" />
       <Text style={styles.filterText}>{label}</Text>
     </TouchableOpacity>
   );
 
+  const renderItem = ({ item }) => {
+    const urlGambar = IMAGE_URL + item.gambar;
+
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => navigation.navigate("DetailKos", { item })}
+      >
+        <Image
+          source={{ uri: urlGambar }}
+          style={styles.cardImage}
+          defaultSource={{
+            uri: "https://via.placeholder.com/300x200.png?text=Loading",
+          }}
+          onError={(e) =>
+            console.log("Gagal muat gambar:", e.nativeEvent.error)
+          }
+        />
+
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>{item.nama_kos}</Text>
+          <Text style={styles.cardPrice}>
+            Rp {parseInt(item.harga).toLocaleString("id-ID")} / bulan
+          </Text>
+          <View style={styles.locationContainer}>
+            <Ionicons name="location-outline" size={14} color="#666" />
+            <Text style={styles.cardLocation} numberOfLines={1}>
+              {item.alamat}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#27ae60" />
 
-      {loading ? (
+      {loading && !refreshing ? (
         <View style={styles.centerLoading}>
           <ActivityIndicator size="large" color="#27ae60" />
         </View>
       ) : (
         <FlatList
-          data={data}
+          // --- PERUBAHAN UTAMA DI SINI ---
+          // Gunakan .slice(0, 3) untuk membatasi hanya 3 data yang dirender
+          data={data.slice(0, 3)}
+          // ---------------------------------
           keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <KostCard
-              item={item}
-              onPress={() => navigation.navigate("DetailKos", { item: item })}
-            />
-          )}
+          renderItem={renderItem}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={{ paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
@@ -222,6 +279,7 @@ export default function HomeScreen({ navigation }) {
           }
         />
       )}
+
       <BottomNavigator navigation={navigation} activeScreen="Home" />
     </View>
   );
@@ -231,7 +289,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
   centerLoading: { flex: 1, justifyContent: "center", alignItems: "center" },
 
-  // Header
+  // Header Hijau
   greenHeader: {
     backgroundColor: "#27ae60",
     padding: 20,
@@ -252,21 +310,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   locationText: { color: "#e8f5e9", fontSize: 12, marginLeft: 4 },
-
-  iconBtn: { position: "relative", padding: 5 },
-  notifBadge: {
-    position: "absolute",
-    top: 5,
-    right: 5,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#e74c3c",
-    borderWidth: 1,
-    borderColor: "#27ae60",
+  profileIcon: {
+    width: 35,
+    height: 35,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#fff",
+    backgroundColor: "#ccc", // Tambahkan background agar kelihatan jika gambar null
   },
-
-  greetingText: { color: "white", fontSize: 24, fontWeight: "bold" },
+  iconBtn: { padding: 5 },
+  greetingText: { color: "white", fontSize: 20, fontWeight: "bold" },
   subGreetingText: {
     color: "#e8f5e9",
     fontSize: 14,
@@ -293,7 +346,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     borderRadius: 10,
     paddingHorizontal: 15,
-    height: 50,
+    height: 45,
     marginBottom: 15,
   },
   filterContainer: {
@@ -309,7 +362,7 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 12, color: "#555", marginLeft: 5, fontWeight: "500" },
   divider: { width: 1, height: 20, backgroundColor: "#eee" },
 
-  // Categories
+  // Kategori & Promo
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
@@ -333,4 +386,39 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   categoryLabel: { fontSize: 12, color: "#555", fontWeight: "500" },
+
+  // Card Kos
+  card: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: "white",
+    borderRadius: 15,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  cardImage: {
+    width: "100%",
+    height: 180,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    backgroundColor: "#eee",
+  },
+  cardContent: { padding: 15 },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 5,
+    marginTop: 5,
+  },
+  cardPrice: {
+    fontSize: 15,
+    color: "#27ae60",
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+  locationContainer: { flexDirection: "row", alignItems: "center" },
+  cardLocation: { color: "gray", fontSize: 12, marginLeft: 4, flex: 1 },
 });

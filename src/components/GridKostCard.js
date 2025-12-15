@@ -8,31 +8,32 @@ import {
   Dimensions,
 } from "react-native";
 import { IMAGE_URL } from "../config";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 const { width } = Dimensions.get("window");
-const cardWidth = width / 2 - 24; // 24 = Margin kiri(16) + tengah(8)
+const cardWidth = width / 2 - 24;
 
 export default function GridKostCard({ item, onPress }) {
-  // --- LOGIKA DUMMY (Karena database belum ada kolom ini) ---
-  // 1. Tentukan Gender dari Nama/Deskripsi
-  let gender = "Campur";
-  let genderColor = "#9b59b6"; // Ungu default
+  // --- PERBAIKAN DI SINI ---
+  // Ambil data asli dari database. Default "Campur" jika kosong.
+  const genderType = item.gender ? item.gender : "Campur";
+
+  // Tentukan Warna
+  let genderColor = "#9b59b6"; // Ungu (Campur)
   let badgeBg = "#f3e5f5";
 
-  if (item.nama_kos.toLowerCase().includes("putra")) {
-    gender = "Putra";
+  // Kita pakai toLowerCase() agar aman (Putra/putra tetap terbaca)
+  if (genderType.toLowerCase() === "putra") {
     genderColor = "#3498db"; // Biru
     badgeBg = "#e3f2fd";
-  } else if (item.nama_kos.toLowerCase().includes("putri")) {
-    gender = "Putri";
+  } else if (genderType.toLowerCase() === "putri") {
     genderColor = "#e91e63"; // Pink
     badgeBg = "#fce4ec";
   }
 
-  // 2. Simulasi Harga Diskon
+  // Hitung Diskon (Pura-pura/Dummy)
   const price = parseInt(item.harga);
-  const originalPrice = price + 150000; // Harga asli pura-pura lebih mahal
+  const originalPrice = price + 150000;
   const discount = Math.round(((originalPrice - price) / originalPrice) * 100);
 
   return (
@@ -42,7 +43,7 @@ export default function GridKostCard({ item, onPress }) {
       style={styles.cardContainer}
     >
       <View style={styles.card}>
-        {/* --- IMAGE CONTAINER --- */}
+        {/* IMAGE CONTAINER */}
         <View>
           <Image
             source={{
@@ -52,25 +53,21 @@ export default function GridKostCard({ item, onPress }) {
             }}
             style={styles.cardImage}
           />
-
-          {/* Badge Diskon (Kiri Atas) */}
           <View style={styles.discountBadge}>
             <Text style={styles.discountText}>-{discount}%</Text>
           </View>
-
-          {/* Wishlist Button (Kanan Atas) */}
           <TouchableOpacity style={styles.wishlistBtn}>
             <Ionicons name="heart-outline" size={18} color="white" />
           </TouchableOpacity>
         </View>
 
-        {/* --- INFO CONTENT --- */}
+        {/* INFO CONTENT */}
         <View style={styles.cardContent}>
-          {/* Baris 1: Gender & Rating */}
           <View style={styles.rowBetween}>
+            {/* Badge Gender yang sudah diperbaiki */}
             <View style={[styles.genderBadge, { backgroundColor: badgeBg }]}>
               <Text style={[styles.genderText, { color: genderColor }]}>
-                {gender}
+                {genderType}
               </Text>
             </View>
             <View style={styles.ratingRow}>
@@ -79,7 +76,6 @@ export default function GridKostCard({ item, onPress }) {
             </View>
           </View>
 
-          {/* Baris 2: Judul & Lokasi */}
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.nama_kos}
           </Text>
@@ -90,7 +86,6 @@ export default function GridKostCard({ item, onPress }) {
             </Text>
           </View>
 
-          {/* Baris 3: Fasilitas Singkat (Pills) */}
           <View style={styles.facilityRow}>
             <View style={styles.facPill}>
               <Text style={styles.facText}>WiFi</Text>
@@ -101,7 +96,6 @@ export default function GridKostCard({ item, onPress }) {
             <Text style={styles.facMore}>+2</Text>
           </View>
 
-          {/* Baris 4: Harga */}
           <View style={styles.priceContainer}>
             <Text style={styles.strikethrough}>
               Rp {originalPrice.toLocaleString("id-ID")}
@@ -118,10 +112,7 @@ export default function GridKostCard({ item, onPress }) {
 }
 
 const styles = StyleSheet.create({
-  cardContainer: {
-    width: cardWidth,
-    marginBottom: 16,
-  },
+  cardContainer: { width: cardWidth, marginBottom: 16 },
   card: {
     backgroundColor: "white",
     borderRadius: 12,
@@ -135,8 +126,6 @@ const styles = StyleSheet.create({
     borderColor: "#f0f0f0",
   },
   cardImage: { width: "100%", height: 140, resizeMode: "cover" },
-
-  // Badges di atas Gambar
   discountBadge: {
     position: "absolute",
     top: 10,
@@ -158,8 +147,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  // Konten
   cardContent: { padding: 10 },
   rowBetween: {
     flexDirection: "row",
@@ -167,13 +154,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
-
   genderBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   genderText: { fontSize: 10, fontWeight: "bold", textTransform: "uppercase" },
-
   ratingRow: { flexDirection: "row", alignItems: "center" },
   ratingText: { fontSize: 10, color: "#7f8c8d", marginLeft: 2 },
-
   cardTitle: {
     fontSize: 14,
     fontWeight: "bold",
@@ -182,7 +166,6 @@ const styles = StyleSheet.create({
   },
   locationRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   cardLocation: { fontSize: 11, color: "#95a5a6", flex: 1, marginLeft: 2 },
-
   facilityRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   facPill: {
     backgroundColor: "#f5f6fa",
@@ -193,7 +176,6 @@ const styles = StyleSheet.create({
   },
   facText: { fontSize: 9, color: "#7f8c8d" },
   facMore: { fontSize: 9, color: "#7f8c8d" },
-
   priceContainer: { marginTop: "auto" },
   strikethrough: {
     textDecorationLine: "line-through",

@@ -3,33 +3,54 @@ import {
   View,
   Text,
   Image,
-  StyleSheet, // <-- INI YANG TADI HILANG
+  StyleSheet,
   ScrollView,
   TouchableOpacity,
   StatusBar,
   Dimensions,
+  Alert,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { IMAGE_URL } from "../config";
 
 const { width } = Dimensions.get("window");
 
+// Mapping Icon biar otomatis (Sama dengan AddKostScreen)
+const ICON_MAP = {
+  WiFi: "wifi",
+  AC: "air-conditioner",
+  "K. Mandi Dalam": "shower",
+  Kasur: "bed-empty",
+  Lemari: "wardrobe",
+  Meja: "desk",
+  "Parkir Motor": "motorbike",
+  "Parkir Mobil": "car",
+  Dapur: "stove",
+  CCTV: "cctv",
+};
+
 export default function DetailKosScreen({ route, navigation }) {
   const { item } = route.params;
-
-  // Logika Cek Stok (Mencegah error jika stok undefined/null)
-  // Default ke 0 jika data tidak ada
   const stock = item.stok_kamar ? parseInt(item.stok_kamar) : 0;
   const isFull = stock <= 0;
 
-  const FacilityItem = ({ icon, name }) => (
-    <View style={styles.facilityItem}>
-      <View style={styles.facilityIconBg}>
-        <MaterialCommunityIcons name={icon} size={24} color="#27ae60" />
+  const fasilitasArray = item.fasilitas
+    ? item.fasilitas.split(",").filter((i) => i)
+    : [];
+
+  const FacilityItem = ({ name }) => {
+    // Cari nama icon berdasarkan teks fasilitas, default 'check-circle' kalau gak ketemu
+    const iconName = ICON_MAP[name] || "check-circle";
+
+    return (
+      <View style={styles.facilityItem}>
+        <View style={styles.facilityIconBg}>
+          <MaterialCommunityIcons name={iconName} size={24} color="#27ae60" />
+        </View>
+        <Text style={styles.facilityText}>{name}</Text>
       </View>
-      <Text style={styles.facilityText}>{name}</Text>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: "white" }}>
@@ -40,7 +61,7 @@ export default function DetailKosScreen({ route, navigation }) {
       />
 
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* --- 1. HEADER GAMBAR --- */}
+        {/* Header Gambar */}
         <View style={styles.headerContainer}>
           <Image
             source={{
@@ -54,12 +75,9 @@ export default function DetailKosScreen({ route, navigation }) {
         </View>
 
         <View style={styles.content}>
-          {/* --- 2. JUDUL & TAG --- */}
           <View style={styles.titleSection}>
             <Text style={styles.title}>{item.nama_kos}</Text>
-
             <View style={styles.badgesRow}>
-              {/* Badge Campur/Putra/Putri */}
               <View
                 style={[
                   styles.badge,
@@ -70,8 +88,6 @@ export default function DetailKosScreen({ route, navigation }) {
                   {item.gender || "Campur"}
                 </Text>
               </View>
-
-              {/* Badge Stok Dinamis */}
               {isFull ? (
                 <View
                   style={[
@@ -80,7 +96,7 @@ export default function DetailKosScreen({ route, navigation }) {
                   ]}
                 >
                   <Text style={[styles.badgeText, { color: "#e53935" }]}>
-                    KAMAR PENUH
+                    PENUH
                   </Text>
                 </View>
               ) : (
@@ -95,13 +111,7 @@ export default function DetailKosScreen({ route, navigation }) {
                   </Text>
                 </View>
               )}
-
-              <View style={styles.ratingBadge}>
-                <Ionicons name="star" size={14} color="#f1c40f" />
-                <Text style={styles.ratingText}>4.8</Text>
-              </View>
             </View>
-
             <View style={styles.locationRow}>
               <Ionicons name="location" size={18} color="#27ae60" />
               <Text style={styles.location}>{item.alamat}</Text>
@@ -110,26 +120,27 @@ export default function DetailKosScreen({ route, navigation }) {
 
           <View style={styles.divider} />
 
-          {/* --- 3. FASILITAS --- */}
-          <Text style={styles.sectionTitle}>Fasilitas Utama</Text>
+          {/* --- BAGIAN FASILITAS DINAMIS --- */}
+          <Text style={styles.sectionTitle}>Fasilitas</Text>
           <View style={styles.facilitiesGrid}>
-            <FacilityItem icon="wifi" name="WiFi Gratis" />
-            <FacilityItem icon="air-conditioner" name="AC" />
-            <FacilityItem icon="bed-empty" name="Kasur" />
-            <FacilityItem icon="wardrobe" name="Lemari" />
-            <FacilityItem icon="shower" name="K. Mandi" />
-            <FacilityItem icon="parking" name="Parkir" />
+            {fasilitasArray.length > 0 ? (
+              fasilitasArray.map((fasilitasName, index) => (
+                <FacilityItem key={index} name={fasilitasName.trim()} />
+              ))
+            ) : (
+              <Text style={{ color: "gray", fontStyle: "italic" }}>
+                Tidak ada data fasilitas.
+              </Text>
+            )}
           </View>
 
           <View style={styles.divider} />
 
-          {/* --- 4. DESKRIPSI --- */}
           <Text style={styles.sectionTitle}>Deskripsi Kos</Text>
           <Text style={styles.desc}>{item.deskripsi}</Text>
 
           <View style={styles.divider} />
-
-          {/* --- 5. PEMILIK KOS --- */}
+          {/* Pemilik Kos Section (Tetap sama) */}
           <Text style={styles.sectionTitle}>Pemilik Kos</Text>
           <View style={styles.ownerCard}>
             <Image
@@ -139,21 +150,14 @@ export default function DetailKosScreen({ route, navigation }) {
               style={styles.ownerImage}
             />
             <View>
-              <Text style={styles.ownerName}>Ibu Siti</Text>
-              <Text style={styles.ownerStatus}>Aktif 5 menit lalu</Text>
+              <Text style={styles.ownerName}>Ibu Kost</Text>
+              <Text style={styles.ownerStatus}>Online</Text>
             </View>
-            <TouchableOpacity style={styles.chatButton}>
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={24}
-                color="#27ae60"
-              />
-            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
-      {/* --- 6. FOOTER STICKY --- */}
+      {/* Footer */}
       <View style={styles.footer}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 12, color: "gray" }}>Harga Sewa</Text>
@@ -164,12 +168,10 @@ export default function DetailKosScreen({ route, navigation }) {
             </Text>
           </Text>
         </View>
-
-        {/* Tombol Booking dengan Logika Stok */}
         <TouchableOpacity
           style={[styles.btnBook, isFull && { backgroundColor: "#ccc" }]}
           disabled={isFull}
-          onPress={() => navigation.navigate("BookingForm", { item: item })}
+          onPress={() => navigation.navigate("BookingForm", { item })}
         >
           <Text style={styles.btnText}>{isFull ? "HABIS" : "Ajukan Sewa"}</Text>
         </TouchableOpacity>
@@ -183,7 +185,7 @@ const styles = StyleSheet.create({
   image: { width: width, height: 280, resizeMode: "cover" },
   backButton: {
     position: "absolute",
-    top: 30,
+    top: 40,
     left: 20,
     backgroundColor: "rgba(0,0,0,0.3)",
     padding: 8,
@@ -214,15 +216,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   badgeText: { fontSize: 12, fontWeight: "bold" },
-  ratingBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff9c4",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 5,
-  },
-  ratingText: { marginLeft: 4, fontWeight: "bold", color: "#f39c12" },
   locationRow: { flexDirection: "row", alignItems: "center" },
   location: { color: "gray", marginLeft: 5, fontSize: 14, flex: 1 },
   divider: { height: 1, backgroundColor: "#f0f0f0", marginVertical: 20 },
@@ -232,12 +225,10 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     color: "#333",
   },
-  facilitiesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  facilityItem: { width: "30%", alignItems: "center", marginBottom: 15 },
+
+  // Style Fasilitas Grid
+  facilitiesGrid: { flexDirection: "row", flexWrap: "wrap" },
+  facilityItem: { width: "33%", alignItems: "center", marginBottom: 15 }, // 3 kolom
   facilityIconBg: {
     width: 50,
     height: 50,
@@ -247,7 +238,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 5,
   },
-  facilityText: { fontSize: 12, color: "gray" },
+  facilityText: { fontSize: 12, color: "gray", textAlign: "center" },
+
   desc: { lineHeight: 24, color: "#555", fontSize: 14 },
   ownerCard: {
     flexDirection: "row",
@@ -261,7 +253,6 @@ const styles = StyleSheet.create({
   ownerImage: { width: 50, height: 50, borderRadius: 25, marginRight: 15 },
   ownerName: { fontWeight: "bold", fontSize: 16 },
   ownerStatus: { color: "#27ae60", fontSize: 12 },
-  chatButton: { marginLeft: "auto", padding: 5 },
   footer: {
     flexDirection: "row",
     alignItems: "center",

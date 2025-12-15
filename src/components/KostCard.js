@@ -8,17 +8,7 @@ export default function KostCard({ item, onPress }) {
   const stock = parseInt(item.stok_kamar) || 0;
   const isFull = stock <= 0;
 
-  // 2. Logika Warna Gender
-  let genderColor = "#9b59b6"; // Default Ungu (Campur)
-  let genderBg = "#f3e5f5";
-
-  if (item.gender === "Putra") {
-    genderColor = "#2980b9"; // Biru
-    genderBg = "#e3f2fd";
-  } else if (item.gender === "Putri") {
-    genderColor = "#e91e63"; // Pink
-    genderBg = "#fce4ec";
-  }
+  // (Logika Gender & Warna Gender SUDAH DIHAPUS)
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
@@ -33,16 +23,9 @@ export default function KostCard({ item, onPress }) {
       />
 
       <View style={styles.content}>
-        {/* --- BARIS TAG (GENDER & STOK) --- */}
+        {/* --- BARIS TAG (HANYA STOK, GENDER DIHAPUS) --- */}
         <View style={styles.tagsRow}>
-          {/* Badge Gender */}
-          <View style={[styles.badge, { backgroundColor: genderBg }]}>
-            <Text style={[styles.badgeText, { color: genderColor }]}>
-              {item.gender || "Campur"}
-            </Text>
-          </View>
-
-          {/* Badge Stok (YANG BARU) */}
+          {/* Badge Stok Saja */}
           {isFull ? (
             <View style={[styles.badge, { backgroundColor: "#ffebee" }]}>
               <Text style={[styles.badgeText, { color: "#c62828" }]}>
@@ -108,7 +91,6 @@ const styles = StyleSheet.create({
     padding: 15,
   },
 
-  // Style Baris Tag (Badge)
   tagsRow: {
     flexDirection: "row",
     marginBottom: 10,

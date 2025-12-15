@@ -28,7 +28,6 @@ export default function BottomNavigator({ navigation, activeScreen }) {
     <View style={styles.container}>
       <NavIcon name="home" label="Beranda" targetScreen="Home" />
       <NavIcon name="magnify" label="Cari" targetScreen="Search" />
-      <NavIcon name="heart-outline" label="Favorit" targetScreen="Favorite" />
       <NavIcon
         name="file-document-outline"
         label="Pesanan"

@@ -15,6 +15,8 @@ import SearchScreen from "./src/screens/SearchScreen";
 import EditProfileScreen from "./src/screens/EditProfileScreen";
 import PaymentScreen from "./src/screens/PaymentScreen";
 
+import AddKostScreen from "./src/screens/AddKostScreen";
+
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -80,6 +82,12 @@ export default function App() {
         <Stack.Screen
           name="Payment"
           component={PaymentScreen}
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="AddKost"
+          component={AddKostScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
