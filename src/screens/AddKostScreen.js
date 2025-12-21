@@ -13,8 +13,9 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { API_BASE_URL } from "../config";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// DAFTAR OPSI FASILITAS (Bisa ditambah)
+// DAFTAR OPSI FASILITAS
 const FACILITY_OPTIONS = [
   { id: "WiFi", icon: "wifi" },
   { id: "AC", icon: "air-conditioner" },
@@ -37,7 +38,7 @@ export default function AddKostScreen({ navigation }) {
   const [stok, setStok] = useState("5");
   const [gender, setGender] = useState("Campur");
 
-  // UBAH INI: Dari string kosong jadi Array kosong
+  // State array untuk fasilitas
   const [selectedFacilities, setSelectedFacilities] = useState([]);
 
   const [image, setImage] = useState(null);
@@ -75,38 +76,68 @@ export default function AddKostScreen({ navigation }) {
     }
 
     setLoading(true);
-    const formData = new FormData();
-    formData.append("nama_kos", nama);
-    formData.append("alamat", alamat);
-    formData.append("harga", harga);
-    formData.append("deskripsi", deskripsi);
-    formData.append("gender", gender);
-    formData.append("stok_kamar", stok);
-
-    // PENTING: Ubah Array fasilitas menjadi String (dipisah koma) untuk Database
-    // Contoh: ["WiFi", "AC"] menjadi "WiFi,AC"
-    formData.append("fasilitas", selectedFacilities.join(","));
-
-    let localUri = image.uri;
-    let filename = localUri.split("/").pop();
-    let match = /\.(\w+)$/.exec(filename);
-    let type = match ? `image/${match[1]}` : `image`;
-    formData.append("gambar", { uri: localUri, name: filename, type });
 
     try {
+      // 1. AMBIL DATA USER (PEMILIK) DARI ASYNC STORAGE
+      const userData = await AsyncStorage.getItem("user_data");
+
+      if (!userData) {
+        Alert.alert("Gagal", "Sesi Anda berakhir. Silakan login ulang.");
+        navigation.replace("Login");
+        return;
+      }
+
+      const user = JSON.parse(userData);
+      const ownerId = user.id;
+
+      const formData = new FormData();
+      formData.append("nama_kos", nama);
+      formData.append("alamat", alamat);
+      formData.append("harga", harga);
+      formData.append("deskripsi", deskripsi);
+      formData.append("gender", gender);
+      formData.append("stok_kamar", stok);
+
+      // 2. KIRIM OWNER ID KE BACKEND
+      formData.append("owner_id", ownerId);
+
+      // Ubah Array fasilitas menjadi String (dipisah koma)
+      formData.append("fasilitas", selectedFacilities.join(","));
+
+      let localUri = image.uri;
+      let filename = localUri.split("/").pop();
+      let match = /\.(\w+)$/.exec(filename);
+      let type = match ? `image/${match[1]}` : `image`;
+      formData.append("gambar", { uri: localUri, name: filename, type });
+
       const response = await fetch(`${API_BASE_URL}add_kost.php`, {
         method: "POST",
         body: formData,
         headers: { "Content-Type": "multipart/form-data" },
       });
-      const json = await response.json();
 
-      if (json.status === "success") {
-        Alert.alert("Berhasil", "Kost ditayangkan!", [
-          { text: "OK", onPress: () => navigation.goBack() },
-        ]);
-      } else {
-        Alert.alert("Gagal", json.message);
+      // --- DEBUG MODE: BACA RESPON SEBAGAI TEXT DULU ---
+      // Ini akan menampilkan pesan error PHP di terminal jika terjadi SyntaxError
+      const textResponse = await response.text();
+      console.log("RESPONSE ADD KOST:", textResponse);
+
+      try {
+        const json = JSON.parse(textResponse);
+
+        if (json.status === "success") {
+          Alert.alert("Berhasil", "Kost ditayangkan!", [
+            { text: "OK", onPress: () => navigation.goBack() },
+          ]);
+        } else {
+          Alert.alert("Gagal", json.message || "Gagal menyimpan data");
+        }
+      } catch (e) {
+        // Jika masuk sini, berarti textResponse bukan JSON (biasanya HTML Error PHP)
+        Alert.alert(
+          "Error Server",
+          "Terjadi error di server. Cek console/terminal untuk detailnya."
+        );
+        console.error("JSON PARSE ERROR:", e);
       }
     } catch (error) {
       console.log(error);
@@ -259,7 +290,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     padding: 20,
-    paddingTop: 50,
+    paddingTop: 30,
     borderBottomWidth: 1,
     borderColor: "#eee",
   },
@@ -301,8 +332,6 @@ const styles = StyleSheet.create({
   },
   pillActive: { backgroundColor: "#27ae60", borderColor: "#27ae60" },
   pillText: { fontSize: 10, color: "#555" },
-
-  // STYLE BARU UNTUK CHIPS
   chipsContainer: { flexDirection: "row", flexWrap: "wrap" },
   chip: {
     flexDirection: "row",
@@ -318,7 +347,6 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: "#27ae60", borderColor: "#27ae60" },
   chipText: { fontSize: 12, color: "#555" },
-
   btnSubmit: {
     backgroundColor: "#27ae60",
     padding: 15,

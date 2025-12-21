@@ -39,6 +39,7 @@ export default function HistoryScreen({ navigation }) {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
+  // Ambil data setiap kali layar dibuka (termasuk setelah bayar)
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
       checkSessionAndFetch();
@@ -46,13 +47,18 @@ export default function HistoryScreen({ navigation }) {
     return unsubscribe;
   }, [navigation]);
 
+  // Filter data setiap kali tab berubah atau data baru masuk
   useEffect(() => {
-    filterData();
+    if (masterData.length > 0) {
+      filterData();
+    } else {
+      setFilteredData([]);
+    }
   }, [activeTab, masterData]);
 
   const checkSessionAndFetch = async () => {
     try {
-      const session = await AsyncStorage.getItem("userSession");
+      const session = await AsyncStorage.getItem("user_data");
       if (session) {
         const userData = JSON.parse(session);
         setUser(userData);
@@ -63,6 +69,7 @@ export default function HistoryScreen({ navigation }) {
       }
     } catch (e) {
       console.log(e);
+      setLoading(false);
     }
   };
 
@@ -85,23 +92,35 @@ export default function HistoryScreen({ navigation }) {
     }
   };
 
+  // --- LOGIKA FILTER YANG DIPERBAIKI (CASE INSENSITIVE) ---
   const filterData = () => {
+    if (!masterData) return;
+
     if (activeTab === "Berlangsung") {
-      const data = masterData.filter(
-        (item) =>
-          item.status === "Pending" ||
-          item.status === "Menunggu Pembayaran" ||
-          item.status === "dibayar"
-      );
+      const data = masterData.filter((item) => {
+        const s = item.status ? item.status.toLowerCase() : "";
+        // Masukkan semua kemungkinan status 'ongoing' di sini
+        return (
+          s === "pending" ||
+          s === "menunggu pembayaran" ||
+          s === "dibayar" ||
+          s === "menunggu konfirmasi"
+        );
+      });
       setFilteredData(data);
     } else {
-      const data = masterData.filter(
-        (item) =>
-          item.status === "Confirmed" ||
-          item.status === "LUNAS" ||
-          item.status === "Selesai" ||
-          item.status === "Dibatalkan"
-      );
+      const data = masterData.filter((item) => {
+        const s = item.status ? item.status.toLowerCase() : "";
+        // Masukkan semua kemungkinan status 'selesai' di sini
+        return (
+          s === "lunas" || // <-- Ini yang penting (huruf kecil)
+          s === "selesai" ||
+          s === "confirmed" ||
+          s === "approved" ||
+          s === "dibatalkan" ||
+          s === "rejected"
+        );
+      });
       setFilteredData(data);
     }
   };
@@ -111,44 +130,35 @@ export default function HistoryScreen({ navigation }) {
     if (user) fetchHistory(user.id);
   }, [user]);
 
-  // --- FUNGSI HAPUS PESANAN/STRUK ---
   const handleDelete = (id) => {
-    Alert.alert(
-      "Hapus Riwayat",
-      "Apakah Anda yakin ingin menghapus struk ini dari riwayat?",
-      [
-        { text: "Batal", style: "cancel" },
-        {
-          text: "HAPUS",
-          style: "destructive", // Merah
-          onPress: async () => {
-            try {
-              const formData = new FormData();
-              formData.append("id_booking", id);
+    Alert.alert("Hapus Riwayat", "Yakin ingin menghapus riwayat ini?", [
+      { text: "Batal", style: "cancel" },
+      {
+        text: "Hapus",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const formData = new FormData();
+            formData.append("id_booking", id);
 
-              const response = await fetch(
-                `${API_BASE_URL}delete_booking.php`,
-                {
-                  method: "POST",
-                  body: formData,
-                  headers: { "Content-Type": "multipart/form-data" },
-                }
-              );
+            const response = await fetch(`${API_BASE_URL}delete_booking.php`, {
+              method: "POST",
+              body: formData,
+              headers: { "Content-Type": "multipart/form-data" },
+            });
 
-              const json = await response.json();
-              if (json.status === "success") {
-                // Refresh data setelah hapus
-                if (user) fetchHistory(user.id);
-              } else {
-                Alert.alert("Gagal", json.message);
-              }
-            } catch (e) {
-              Alert.alert("Error", "Gagal koneksi ke server");
+            const json = await response.json();
+            if (json.status === "success") {
+              if (user) fetchHistory(user.id);
+            } else {
+              Alert.alert("Gagal", json.message);
             }
-          },
+          } catch (e) {
+            Alert.alert("Error", "Gagal koneksi ke server");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const openTicket = (item) => {
@@ -157,26 +167,33 @@ export default function HistoryScreen({ navigation }) {
   };
 
   const OrderCard = ({ item }) => {
-    let statusLabel = item.status || "Menunggu Pembayaran";
+    // Normalisasi status agar tampilan konsisten
+    const rawStatus = item.status ? item.status.toLowerCase() : "pending";
+
+    let statusLabel = "Menunggu Pembayaran";
     let statusColor = "#f39c12";
     let statusBg = "#fdf2e9";
 
-    // Logika Warna Status
-    if (["Confirmed", "LUNAS", "Selesai"].includes(statusLabel)) {
+    if (
+      rawStatus === "lunas" ||
+      rawStatus === "approved" ||
+      rawStatus === "selesai"
+    ) {
       statusLabel = "LUNAS";
       statusColor = "#27ae60";
       statusBg = "#e8f5e9";
-    } else if (statusLabel === "Dibatalkan") {
+    } else if (rawStatus === "dibatalkan" || rawStatus === "rejected") {
+      statusLabel = "Dibatalkan";
       statusColor = "#e74c3c";
       statusBg = "#fce4ec";
-    } else if (statusLabel === "dibayar") {
+    } else if (rawStatus === "dibayar") {
       statusLabel = "Menunggu Konfirmasi";
       statusColor = "#2980b9";
       statusBg = "#e3f2fd";
     }
 
     const renderActions = () => {
-      // TAMPILAN TAB BERLANGSUNG
+      // TAB BERLANGSUNG
       if (activeTab === "Berlangsung") {
         return (
           <View style={styles.actionRow}>
@@ -186,21 +203,28 @@ export default function HistoryScreen({ navigation }) {
             >
               <Text style={styles.btnTextOutline}>Batalkan</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.btnSolid}
-              onPress={() => navigation.navigate("Payment", { item })}
-            >
-              <Text style={styles.btnTextSolid}>Bayar Sekarang</Text>
-            </TouchableOpacity>
+
+            {/* Tombol Bayar HILANG jika status 'dibayar' (Menunggu Konfirmasi) */}
+            {rawStatus !== "dibayar" ? (
+              <TouchableOpacity
+                style={styles.btnSolid}
+                onPress={() => navigation.navigate("Payment", { item })}
+              >
+                <Text style={styles.btnTextSolid}>Bayar Sekarang</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.btnSolid, { backgroundColor: "#bdc3c7" }]}>
+                <Text style={styles.btnTextSolid}>Diproses...</Text>
+              </View>
+            )}
           </View>
         );
       }
 
-      // TAMPILAN TAB SELESAI (Ada Tombol Hapus Struk)
+      // TAB SELESAI
       else {
         return (
           <View style={{ flexDirection: "row", marginTop: 10 }}>
-            {/* Tombol Lihat Tiket (Hanya jika LUNAS) */}
             {statusLabel === "LUNAS" && (
               <TouchableOpacity
                 style={styles.btnTicket}
@@ -215,10 +239,7 @@ export default function HistoryScreen({ navigation }) {
                 <Text style={styles.btnTextSolid}>Lihat Tiket</Text>
               </TouchableOpacity>
             )}
-
             <View style={{ width: 10 }} />
-
-            {/* Tombol Hapus (Sampah) */}
             <TouchableOpacity
               style={styles.btnDelete}
               onPress={() => handleDelete(item.id)}
@@ -313,27 +334,33 @@ export default function HistoryScreen({ navigation }) {
       </View>
 
       {/* LIST DATA */}
-      <FlatList
-        data={filteredData}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <OrderCard item={item} />}
-        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons
-              name="clipboard-text-outline"
-              size={60}
-              color="#ddd"
-            />
-            <Text style={styles.emptyText}>Tidak ada data pesanan.</Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color="#27ae60" />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredData}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => <OrderCard item={item} />}
+          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons
+                name="clipboard-text-outline"
+                size={60}
+                color="#ddd"
+              />
+              <Text style={styles.emptyText}>Tidak ada data pesanan.</Text>
+            </View>
+          }
+        />
+      )}
 
-      {/* MODAL STRUK / TIKET */}
+      {/* MODAL TIKET */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -379,13 +406,13 @@ export default function HistoryScreen({ navigation }) {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Tgl Masuk</Text>
                   <Text style={styles.detailValue}>
-                    {selectedTicket.tanggal_masuk}
+                    {selectedTicket.tanggal_booking}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Durasi</Text>
                   <Text style={styles.detailValue}>
-                    {selectedTicket.lama_sewa} Bulan
+                    {selectedTicket.durasi_sewa} Bulan
                   </Text>
                 </View>
                 <View style={styles.dashedLine} />

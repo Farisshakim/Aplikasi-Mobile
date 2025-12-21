@@ -57,25 +57,46 @@ export default function PaymentScreen({ route, navigation }) {
   const processPayment = async () => {
     setLoading(true);
     const formData = new FormData();
-    formData.append("id", item.id);
+    // Sesuaikan dengan PHP: 'id_booking'
+    formData.append("id_booking", item.id);
+    formData.append("metode", selectedMethod.name);
 
     try {
+      console.log("Mengirim Pembayaran ID:", item.id);
+
       const response = await fetch(`${API_BASE_URL}confirm_payment.php`, {
         method: "POST",
         body: formData,
+        headers: {
+          "Content-Type": "multipart/form-data", // PENTING untuk FormData
+        },
       });
-      const json = await response.json();
 
-      if (json.status === "success") {
-        Alert.alert("Sukses!", "Pembayaran berhasil diverifikasi.", [
-          { text: "OK", onPress: () => navigation.navigate("History") },
-        ]);
-      } else {
-        Alert.alert("Gagal", "Terjadi kesalahan sistem.");
+      const textResponse = await response.text();
+      console.log("Respon Server:", textResponse); // Debugging
+
+      try {
+        const json = JSON.parse(textResponse);
+        if (json.status === "success") {
+          Alert.alert(
+            "Sukses!",
+            "Pembayaran berhasil! Status booking kini LUNAS.",
+            [
+              {
+                text: "Lihat Riwayat",
+                onPress: () => navigation.navigate("History"),
+              },
+            ]
+          );
+        } else {
+          Alert.alert("Gagal", json.message || "Terjadi kesalahan sistem.");
+        }
+      } catch (e) {
+        Alert.alert("Error Server", "Respon server tidak valid.");
       }
     } catch (error) {
       console.log(error);
-      Alert.alert("Error", "Koneksi gagal");
+      Alert.alert("Error", "Koneksi gagal. Cek internet Anda.");
     } finally {
       setLoading(false);
     }
@@ -257,7 +278,7 @@ export default function PaymentScreen({ route, navigation }) {
             <Text style={styles.payText}>
               {selectedMethod.type === "ewallet"
                 ? `Bayar dengan ${selectedMethod.name}`
-                : "Saya Sudah Transfer"}
+                : "Bayar"}
             </Text>
           )}
         </TouchableOpacity>

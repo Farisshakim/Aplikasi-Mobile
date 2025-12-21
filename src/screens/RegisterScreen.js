@@ -1,90 +1,177 @@
 import React, { useState } from "react";
-import { View, Text, Alert, StyleSheet } from "react-native";
-
-// Import Config
+import {
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import CustomInput from "../components/CustomInput"; // Pastikan path benar
+import CustomButton from "../components/CustomButton"; // Pastikan path benar
 import { API_BASE_URL } from "../config";
-
-// Import Komponen Baru
-import CustomInput from "../components/CustomInput";
-import CustomButton from "../components/CustomButton";
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState("penyewa"); // Default Penyewa
 
   const handleRegister = async () => {
-    setLoading(true);
+    if (!name || !email || !phone || !password) {
+      Alert.alert("Error", "Semua kolom harus diisi!");
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}register.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          no_hp: phone,
+          password: password,
+          role: role, // Kirim role ke backend
+        }),
       });
-      const json = await response.json();
 
+      // Debugging: Cek respon mentah jika error JSON
+      const textResponse = await response.text();
+      console.log("Response:", textResponse);
+
+      const json = JSON.parse(textResponse);
       if (json.status === "success") {
-        Alert.alert("Sukses", "Akun berhasil dibuat! Silakan Login.");
+        Alert.alert("Sukses", "Registrasi berhasil! Silakan login.");
         navigation.goBack();
       } else {
-        Alert.alert("Gagal", json.message || "Gagal mendaftar");
+        Alert.alert("Gagal", json.message);
       }
     } catch (error) {
-      Alert.alert("Error", "Gagal koneksi server");
-    } finally {
-      setLoading(false);
+      console.error(error);
+      Alert.alert("Error", "Terjadi kesalahan sistem/jaringan");
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Buat Akun Baru</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={{ alignItems: "center", marginTop: 30 }}>
+          <Text style={styles.title}>Daftar Akun</Text>
+        </View>
 
-      <CustomInput
-        placeholder="Nama Lengkap"
-        value={name}
-        onChangeText={setName}
-      />
+        <View style={styles.formContainer}>
+          <CustomInput
+            icon="person-outline"
+            placeholder="Nama Lengkap"
+            value={name}
+            onChangeText={setName}
+          />
+          <CustomInput
+            icon="mail-outline"
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+          />
+          <CustomInput
+            icon="call-outline"
+            placeholder="No. Handphone"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+          />
+          <CustomInput
+            icon="lock-closed-outline"
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
 
-      <CustomInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
+          {/* PILIHAN ROLE */}
+          <Text
+            style={{
+              marginTop: 15,
+              marginBottom: 10,
+              fontWeight: "bold",
+              color: "#555",
+            }}
+          >
+            Daftar Sebagai:
+          </Text>
+          <View style={{ flexDirection: "row", marginBottom: 20 }}>
+            <TouchableOpacity
+              style={[
+                styles.roleBtn,
+                role === "penyewa" && styles.roleBtnActive,
+              ]}
+              onPress={() => setRole("penyewa")}
+            >
+              <Text
+                style={[
+                  styles.roleText,
+                  role === "penyewa" && { color: "white" },
+                ]}
+              >
+                Penyewa
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.roleBtn,
+                role === "pemilik" && styles.roleBtnActive,
+              ]}
+              onPress={() => setRole("pemilik")}
+            >
+              <Text
+                style={[
+                  styles.roleText,
+                  role === "pemilik" && { color: "white" },
+                ]}
+              >
+                Pemilik Kos
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-      <CustomInput
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry={true}
-      />
+          <CustomButton title="Register" onPress={handleRegister} />
 
-      {/* Pakai Komponen Tombol dengan Warna Biru Gelap */}
-      <CustomButton
-        title="DAFTAR"
-        onPress={handleRegister}
-        loading={loading}
-        color="#34495e" // <-- Custom Warna
-      />
-    </View>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "center",
+              marginTop: 20,
+            }}
+          >
+            <Text>Sudah punya akun? </Text>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Text style={{ color: "green", fontWeight: "bold" }}>Login</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: "#fff" },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 20 },
+  formContainer: { paddingHorizontal: 25 },
+  roleBtn: {
     flex: 1,
-    padding: 20,
-    justifyContent: "center",
-    backgroundColor: "white",
+    padding: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#27ae60",
+    borderRadius: 8,
+    marginHorizontal: 5,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#34495e", // Warna judul disamakan dengan tombol
-    marginBottom: 30,
-    textAlign: "center",
-  },
+  roleBtnActive: { backgroundColor: "#27ae60" },
+  roleText: { color: "#27ae60", fontWeight: "bold" },
 });

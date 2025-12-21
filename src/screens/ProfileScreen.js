@@ -41,6 +41,7 @@ export default function ProfileScreen({ navigation }) {
         onPress: async () => {
           await AsyncStorage.removeItem("user_data");
           setUser(null);
+          // Reset navigasi ke Home agar tidak bisa back
           navigation.reset({ index: 0, routes: [{ name: "Home" }] });
         },
         style: "destructive",
@@ -76,6 +77,7 @@ export default function ProfileScreen({ navigation }) {
     </TouchableOpacity>
   );
 
+  // --- TAMPILAN JIKA BELUM LOGIN (TAMU) ---
   if (user === null) {
     return (
       <View style={styles.container}>
@@ -110,6 +112,7 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
+  // --- TAMPILAN UTAMA PROFILE ---
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
@@ -142,6 +145,7 @@ export default function ProfileScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* --- MENU AKTIVITAS --- */}
         <Text style={styles.sectionTitle}>Aktivitas Saya</Text>
         <View style={styles.menuGroup}>
           <MenuItem
@@ -152,6 +156,7 @@ export default function ProfileScreen({ navigation }) {
           />
         </View>
 
+        {/* --- MENU PENGATURAN --- */}
         <Text style={styles.sectionTitle}>Pengaturan Akun</Text>
         <View style={styles.menuGroup}>
           <MenuItem
@@ -161,6 +166,7 @@ export default function ProfileScreen({ navigation }) {
           />
         </View>
 
+        {/* --- MENU LAINNYA --- */}
         <Text style={styles.sectionTitle}>Lainnya</Text>
         <View style={styles.menuGroup}>
           <MenuItem
@@ -177,61 +183,89 @@ export default function ProfileScreen({ navigation }) {
           />
         </View>
 
-        <Text style={styles.sectionTitle}>Area Pemilik Kos</Text>
-        <View style={styles.menuGroup}>
-          <MenuItem
-            icon="add-circle-outline"
-            label="Sewakan Kost Anda"
-            subLabel="Tambah iklan kost baru"
-            onPress={() => navigation.navigate("AddKost")}
-          />
-        </View>
-        {/* --------------------------- */}
+        {/* --- BAGIAN PEMILIK KOS SUDAH DIHAPUS --- */}
 
-        <Text style={styles.sectionTitle}>Lainnya</Text>
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* --- MODAL POP-UP CREDIT (ICON VECTOR) --- */}
+      {/* --- MODAL POP-UP CREDIT --- */}
+      {/* --- MODAL POP-UP CREDIT (PERBAGUSAN UI) --- */}
       <Modal
-        animationType="fade"
+        animationType="slide"
         transparent={true}
         visible={creditVisible}
         onRequestClose={() => setCreditVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.creditCard}>
-            {/* LOGO VECTOR (Sama dengan Splash) */}
-            <MaterialCommunityIcons
-              name="home-city"
-              size={80}
-              color="#27ae60"
-              style={{ marginBottom: 10 }}
-            />
+            {/* Bagian Header Modal */}
+            <View style={styles.modalHeaderDecor}>
+              <View style={styles.iconCircle}>
+                <MaterialCommunityIcons
+                  name="home-city"
+                  size={40}
+                  color="#27ae60"
+                />
+              </View>
+              <Text style={styles.appName}>AnaKKost</Text>
+              <Text style={styles.appVersion}>v1.0.0 (Beta)</Text>
+            </View>
 
-            <Text style={styles.appName}>AnaKKost</Text>
-            <Text style={styles.appVersion}>Versi 1.0.0 (Beta)</Text>
-            <View style={styles.creditDivider} />
-            <Text style={styles.devLabel}>Developed by:</Text>
+            {/* Bagian Konten Developer */}
+            <View style={styles.modalBody}>
+              <Text style={styles.devLabel}>Meet the Team</Text>
 
-            {/* nama npm */}
-            <Text style={styles.devName}>Mahasiswa Teladan</Text>
-            <Text style={styles.devName}>Mahasiswa Teladan</Text>
-            <Text style={styles.devName}>
-              Faris Hakim Wicaksono 230801010247
-            </Text>
-            <Text style={styles.copyright}>© 2025 All Rights Reserved</Text>
+              <View style={styles.devListContainer}>
+                {/* Developer 1 */}
+                <View style={styles.devItem}>
+                  <View style={styles.devAvatar}>
+                    <Text style={styles.devInitial}>R</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.devName}>Ririn Wanandi</Text>
+                    <Text style={styles.devNim}>23081010136</Text>
+                  </View>
+                </View>
 
+                {/* Developer 2 */}
+                <View style={styles.devItem}>
+                  <View style={styles.devAvatar}>
+                    <Text style={styles.devInitial}>M</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.devName}>M. Rizki Darmawan</Text>
+                    <Text style={styles.devNim}>23081010238</Text>
+                  </View>
+                </View>
+
+                {/* Developer 3 */}
+                <View style={styles.devItem}>
+                  <View style={styles.devAvatar}>
+                    <Text style={styles.devInitial}>F</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.devName}>Faris Hakim W.</Text>
+                    <Text style={styles.devNim}>230801010247</Text>
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.copyright}>
+                © 2025 AnaKKost. All Rights Reserved.
+              </Text>
+            </View>
+
+            {/* Tombol Tutup */}
             <TouchableOpacity
               style={styles.closeCreditBtn}
               onPress={() => setCreditVisible(false)}
+              activeOpacity={0.8}
             >
               <Text style={styles.closeBtnText}>Tutup</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
       <BottomNavigator navigation={navigation} activeScreen="Profile" />
     </View>
   );
@@ -376,9 +410,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 20,
+    marginBottom: 2,
+    textAlign: "center",
   },
-  copyright: { fontSize: 10, color: "#ccc", marginBottom: 20 },
+  copyright: { fontSize: 10, color: "#ccc", marginTop: 15, marginBottom: 20 },
   closeCreditBtn: {
     backgroundColor: "#f5f5f5",
     paddingVertical: 10,
@@ -386,4 +421,118 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   closeBtnText: { color: "#555", fontWeight: "bold" },
+
+  // --- STYLES MODAL BARU ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)", // Lebih gelap biar fokus
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  creditCard: {
+    width: "85%",
+    backgroundColor: "white",
+    borderRadius: 25,
+    overflow: "hidden", // Agar header decor tidak keluar radius
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  modalHeaderDecor: {
+    backgroundColor: "#27ae60",
+    alignItems: "center",
+    paddingVertical: 25,
+    borderBottomLeftRadius: 30, // Efek lengkung
+    borderBottomRightRadius: 30,
+  },
+  iconCircle: {
+    width: 70,
+    height: 70,
+    backgroundColor: "white",
+    borderRadius: 35,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+    elevation: 5,
+  },
+  appName: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "white",
+    letterSpacing: 1,
+  },
+  appVersion: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 2,
+  },
+  modalBody: {
+    padding: 25,
+    alignItems: "center",
+  },
+  devLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 15,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  devListContainer: {
+    width: "100%",
+    marginBottom: 10,
+  },
+  devItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
+    padding: 10,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  devAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#27ae60",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  devInitial: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
+  devName: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  devNim: {
+    fontSize: 12,
+    color: "gray",
+  },
+  copyright: {
+    fontSize: 10,
+    color: "#aaa",
+    marginTop: 10,
+    fontStyle: "italic",
+  },
+  closeCreditBtn: {
+    backgroundColor: "#fff",
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+    alignItems: "center",
+  },
+  closeBtnText: {
+    color: "#27ae60",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });

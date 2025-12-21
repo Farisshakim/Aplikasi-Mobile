@@ -1,29 +1,37 @@
 <?php
-// File: api-kos/confirm_payment.php
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: POST");
-
 include 'koneksi.php';
 
-$method = $_SERVER['REQUEST_METHOD'];
+$response = array();
 
-if ($method == 'POST') {
-    // Ambil ID Booking
-    $id = $_POST['id'];
-
-    if (empty($id)) {
-        echo json_encode(["status" => "error", "message" => "ID tidak ditemukan"]);
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    
+    // Pastikan ID Booking dikirim
+    if (!isset($_POST['id_booking'])) {
+        echo json_encode(["status" => "error", "message" => "ID Booking tidak ditemukan."]);
         exit();
     }
 
-    // Update status jadi 'Confirmed'
-    $query = "UPDATE bookings SET status='Confirmed' WHERE id='$id'";
+    $id_booking = $_POST['id_booking'];
+    $metode_pembayaran = $_POST['metode'] ?? 'Bank Transfer'; // Default
+    
+    // Update status booking menjadi 'dibayar' (Menunggu Konfirmasi Admin/Pemilik)
+    // Atau bisa langsung 'lunas' jika ini simulasi sukses
+    $status_baru = 'lunas'; // Kita buat langsung LUNAS untuk simulasi sukses
+
+    $query = "UPDATE bookings SET status='$status_baru' WHERE id='$id_booking'";
 
     if (mysqli_query($koneksi, $query)) {
-        echo json_encode(["status" => "success", "message" => "Pembayaran Berhasil!"]);
+        $response['status'] = 'success';
+        $response['message'] = 'Pembayaran Berhasil!';
     } else {
-        echo json_encode(["status" => "error", "message" => "Gagal update: " . mysqli_error($koneksi)]);
+        $response['status'] = 'error';
+        $response['message'] = 'Gagal update database: ' . mysqli_error($koneksi);
     }
+
+} else {
+    $response['status'] = 'error';
+    $response['message'] = 'Invalid Request';
 }
+
+echo json_encode($response);
 ?>

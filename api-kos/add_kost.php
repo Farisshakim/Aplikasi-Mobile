@@ -1,47 +1,47 @@
 <?php
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST");
-// Tidak perlu Content-Type: application/json karena kita terima FormData
-
 include 'koneksi.php';
 
+$response = array();
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    
-    $nama      = $_POST['nama_kos'];
-    $alamat    = $_POST['alamat'];
-    $harga     = $_POST['harga'];
+    $nama_kos = $_POST['nama_kos'];
+    $alamat = $_POST['alamat'];
+    $harga = $_POST['harga'];
     $deskripsi = $_POST['deskripsi'];
-    $gender    = $_POST['gender'];
-    $stok      = $_POST['stok_kamar'];
-    $fasilitas = $_POST['fasilitas']; // String dipisah koma
+    $fasilitas = $_POST['fasilitas'];
+    $stok = $_POST['stok_kamar'];
+    $owner_id = $_POST['owner_id']; 
 
-    // Upload Gambar
-    $dbPath = '';
-    if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] === UPLOAD_ERR_OK) {
-        $fileTmpPath = $_FILES['gambar']['tmp_name'];
-        $fileName    = $_FILES['gambar']['name'];
-        $fileNameCmps = explode(".", $fileName);
-        $fileExtension = strtolower(end($fileNameCmps));
+    // MENGAMBIL GENDER (INPUT DARI HP TETAP 'GENDER')
+    $gender = $_POST['gender']; 
+
+    // UPLOAD GAMBAR
+    $nama_file = $_FILES['gambar']['name'];
+    $tmp_file = $_FILES['gambar']['tmp_name'];
+    $ext = pathinfo($nama_file, PATHINFO_EXTENSION);
+    $nama_file_unik = md5(uniqid(rand(), true)) . "." . $ext;
+    $path = "uploads/" . $nama_file_unik;
+
+    if (move_uploaded_file($tmp_file, $path)) {
+        // PERBAIKAN QUERY: MENGGUNAKAN KOLOM 'GENDER'
+        $query = "INSERT INTO kosts (nama_kos, alamat, harga, deskripsi, gambar, fasilitas, gender, stok_kamar, owner_id) 
+                  VALUES ('$nama_kos', '$alamat', '$harga', '$deskripsi', '$nama_file_unik', '$fasilitas', '$gender', '$stok', '$owner_id')";
         
-        $newFileName = md5(time() . $fileName) . '.' . $fileExtension;
-        $uploadFileDir = './uploads/';
-        
-        if(move_uploaded_file($fileTmpPath, $uploadFileDir . $newFileName)) {
-            $dbPath = $newFileName; // Simpan nama filenya saja
+        if (mysqli_query($koneksi, $query)) {
+            $response['status'] = 'success';
+            $response['message'] = 'Berhasil menambah kost';
+        } else {
+            $response['status'] = 'error';
+            $response['message'] = 'Gagal simpan database: ' . mysqli_error($koneksi);
         }
-    }
-
-    // Query Insert
-    $query = "INSERT INTO kosts (nama_kos, alamat, harga, deskripsi, gambar, gender, stok_kamar, fasilitas) 
-              VALUES ('$nama', '$alamat', '$harga', '$deskripsi', '$dbPath', '$gender', '$stok', '$fasilitas')";
-
-    if (mysqli_query($koneksi, $query)) {
-        echo json_encode(["status" => "success", "message" => "Kost berhasil ditambahkan"]);
     } else {
-        echo json_encode(["status" => "error", "message" => "Gagal simpan DB: " . mysqli_error($koneksi)]);
+        $response['status'] = 'error';
+        $response['message'] = 'Gagal upload gambar';
     }
-
 } else {
-    echo json_encode(["status" => "error", "message" => "Invalid Request"]);
+    $response['status'] = 'error';
+    $response['message'] = 'Invalid Request';
 }
+
+echo json_encode($response);
 ?>

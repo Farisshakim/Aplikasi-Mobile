@@ -12,35 +12,56 @@ import {
   Dimensions,
   StatusBar,
 } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { API_BASE_URL } from "../config";
 import BottomNavigator from "../components/BottomNavigator";
 import GridKostCard from "../components/GridKostCard";
 
 const { height } = Dimensions.get("window");
 
-export default function SearchScreen({ navigation }) {
+export default function SearchScreen({ navigation, route }) {
   const [searchText, setSearchText] = useState("");
   const [masterData, setMasterData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // State untuk Modal
   const [modalVisible, setModalVisible] = useState(false);
 
-  // State untuk Filter (Pilihan User)
-  const [selectedType, setSelectedType] = useState("Semua");
+  // Filter State
+  // Mengambil parameter dari Home (misal user klik ikon 'Putra')
+  const initialType = route.params?.filter || "Semua";
+  const [selectedType, setSelectedType] = useState(initialType);
   const [selectedPrice, setSelectedPrice] = useState("Semua Harga");
   const [selectedFacilities, setSelectedFacilities] = useState([]);
 
   // Data Opsi Filter
   const filterTypes = ["Semua", "Putra", "Putri", "Campur"];
   const filterPrices = ["Semua Harga", "< 1 Juta", "1 - 2 Juta", "> 2 Juta"];
-  const filterFacilities = ["WiFi", "AC", "K. Mandi Dalam", "Parkir"];
+  const filterFacilities = [
+    "WiFi",
+    "AC",
+    "K. Mandi Dalam",
+    "Parkir",
+    "Kasur",
+    "Lemari",
+  ];
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Update jika parameter navigasi berubah
+  useEffect(() => {
+    if (route.params?.filter) {
+      setSelectedType(route.params.filter);
+    }
+  }, [route.params]);
+
+  // Jalankan filter otomatis saat state berubah
+  useEffect(() => {
+    if (masterData.length > 0) {
+      applyFilters(searchText, selectedType, selectedPrice, selectedFacilities);
+    }
+  }, [selectedType, selectedPrice, selectedFacilities, masterData]);
 
   const fetchData = async () => {
     try {
@@ -48,7 +69,14 @@ export default function SearchScreen({ navigation }) {
       const json = await response.json();
       if (json.status === "success") {
         setMasterData(json.data);
-        setFilteredData(json.data);
+        const initialFilter = route.params?.filter || "Semua";
+        applyFilters(
+          searchText,
+          initialFilter,
+          selectedPrice,
+          selectedFacilities,
+          json.data
+        );
       }
     } catch (error) {
       console.error(error);
@@ -57,21 +85,22 @@ export default function SearchScreen({ navigation }) {
     }
   };
 
-  // Logika Pencarian Teks (Langsung jalan saat ketik)
   const handleSearchText = (text) => {
     setSearchText(text);
-    // Kita filter sementara hanya berdasarkan teks,
-    // filter kategori nanti diterapkan saat tombol "Terapkan" ditekan
-    // atau bisa digabung real-time jika diinginkan.
-    // Di sini saya buat gabungan real-time agar UX lebih mulus.
     applyFilters(text, selectedType, selectedPrice, selectedFacilities);
   };
 
-  // Fungsi Logika Filter Utama
-  const applyFilters = (text, type, price, facilities) => {
-    let data = masterData;
+  // --- LOGIKA FILTER UTAMA ---
+  const applyFilters = (
+    text,
+    type,
+    price,
+    facilities,
+    sourceData = masterData
+  ) => {
+    let data = sourceData;
 
-    // 1. Filter Teks Search
+    // 1. Filter Teks (Nama & Alamat)
     if (text) {
       data = data.filter(
         (item) =>
@@ -80,14 +109,18 @@ export default function SearchScreen({ navigation }) {
       );
     }
 
-    // 2. Filter Tipe Kos
+    // 2. Filter Tipe Kost (MENGGUNAKAN KOLOM GENDER)
     if (type !== "Semua") {
-      data = data.filter(
-        (item) => item.nama_kos.includes(type) || item.deskripsi.includes(type)
-      );
+      data = data.filter((item) => {
+        // Ambil data dari kolom 'gender' di database
+        const dbGender = item.gender ? item.gender.trim().toLowerCase() : "";
+        const targetType = type.trim().toLowerCase();
+
+        return dbGender === targetType;
+      });
     }
 
-    // 3. Filter Harga (Logika Sederhana)
+    // 3. Filter Harga
     if (price !== "Semua Harga") {
       data = data.filter((item) => {
         const p = parseInt(item.harga);
@@ -98,25 +131,27 @@ export default function SearchScreen({ navigation }) {
       });
     }
 
-    // 4. Filter Fasilitas (Cek di deskripsi)
+    // 4. Filter Fasilitas
     if (facilities.length > 0) {
       data = data.filter((item) => {
-        // Cek apakah item punya SEMUA fasilitas yang dipilih
-        const desc = item.deskripsi.toUpperCase();
-        return facilities.every((fac) => desc.includes(fac.toUpperCase()));
+        const itemFasilitas = item.fasilitas
+          ? item.fasilitas.toUpperCase()
+          : "";
+        const itemDeskripsi = item.deskripsi
+          ? item.deskripsi.toUpperCase()
+          : "";
+
+        return facilities.every(
+          (fac) =>
+            itemFasilitas.includes(fac.toUpperCase()) ||
+            itemDeskripsi.includes(fac.toUpperCase())
+        );
       });
     }
 
     setFilteredData(data);
   };
 
-  // Handler Tombol "Terapkan Filter"
-  const handleApplyButton = () => {
-    applyFilters(searchText, selectedType, selectedPrice, selectedFacilities);
-    setModalVisible(false);
-  };
-
-  // Handler Reset
   const handleReset = () => {
     setSelectedType("Semua");
     setSelectedPrice("Semua Harga");
@@ -125,7 +160,6 @@ export default function SearchScreen({ navigation }) {
     setModalVisible(false);
   };
 
-  // Handler Toggle Fasilitas
   const toggleFacility = (fac) => {
     if (selectedFacilities.includes(fac)) {
       setSelectedFacilities(selectedFacilities.filter((f) => f !== fac));
@@ -138,10 +172,9 @@ export default function SearchScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
 
-      {/* --- HEADER CLEAN (Hanya Search & Tombol Filter) --- */}
+      {/* HEADER */}
       <View style={styles.headerContainer}>
         <View style={styles.searchRow}>
-          {/* Search Input */}
           <View style={styles.searchBar}>
             <Ionicons
               name="search"
@@ -161,18 +194,38 @@ export default function SearchScreen({ navigation }) {
               </TouchableOpacity>
             )}
           </View>
-
-          {/* Tombol Filter (Trigger Modal) */}
           <TouchableOpacity
             style={styles.filterIconBtn}
             onPress={() => setModalVisible(true)}
           >
+            {(selectedType !== "Semua" ||
+              selectedPrice !== "Semua Harga" ||
+              selectedFacilities.length > 0) && (
+              <View style={styles.activeFilterDot} />
+            )}
             <Ionicons name="options-outline" size={24} color="white" />
           </TouchableOpacity>
         </View>
+
+        {/* Chips Filter Aktif */}
+        {selectedType !== "Semua" && (
+          <View style={{ marginTop: 10, flexDirection: "row" }}>
+            <View style={styles.activeChip}>
+              <Text style={styles.activeChipText}>{selectedType}</Text>
+              <TouchableOpacity onPress={() => setSelectedType("Semua")}>
+                <Ionicons
+                  name="close"
+                  size={16}
+                  color="white"
+                  style={{ marginLeft: 5 }}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
 
-      {/* --- CONTENT GRID --- */}
+      {/* LIST KOS */}
       {loading ? (
         <ActivityIndicator
           size="large"
@@ -198,16 +251,24 @@ export default function SearchScreen({ navigation }) {
           }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="search-outline" size={60} color="#ddd" />
-              <Text style={{ color: "gray", marginTop: 10 }}>
-                Tidak ditemukan
+              <Ionicons name="search-outline" size={80} color="#eee" />
+              <Text style={{ color: "gray", marginTop: 10, fontSize: 16 }}>
+                Tidak ditemukan.
               </Text>
+              <TouchableOpacity
+                onPress={handleReset}
+                style={{ marginTop: 15, padding: 10 }}
+              >
+                <Text style={{ color: "#27ae60", fontWeight: "bold" }}>
+                  Reset Filter
+                </Text>
+              </TouchableOpacity>
             </View>
           }
         />
       )}
 
-      {/* --- MODAL FILTER (BOTTOM SHEET) --- */}
+      {/* MODAL FILTER */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -215,23 +276,18 @@ export default function SearchScreen({ navigation }) {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          {/* Area Transparan (Klik untuk tutup) */}
           <TouchableOpacity
             style={{ flex: 1 }}
             onPress={() => setModalVisible(false)}
           />
-
           <View style={styles.modalContent}>
-            {/* Header Modal */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Filter Pencarian</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* 1. Tipe Kos */}
               <Text style={styles.sectionTitle}>Tipe Kost</Text>
               <View style={styles.optionsRow}>
                 {filterTypes.map((type) => (
@@ -254,9 +310,7 @@ export default function SearchScreen({ navigation }) {
                   </TouchableOpacity>
                 ))}
               </View>
-
-              {/* 2. Rentang Harga (Grid 2 Kolom) */}
-              <Text style={styles.sectionTitle}>Rentang Harga</Text>
+              <Text style={styles.sectionTitle}>Harga</Text>
               <View style={styles.gridContainer}>
                 {filterPrices.map((price) => (
                   <TouchableOpacity
@@ -278,8 +332,6 @@ export default function SearchScreen({ navigation }) {
                   </TouchableOpacity>
                 ))}
               </View>
-
-              {/* 3. Fasilitas */}
               <Text style={styles.sectionTitle}>Fasilitas</Text>
               <View style={styles.optionsRow}>
                 {filterFacilities.map((fac) => {
@@ -305,20 +357,17 @@ export default function SearchScreen({ navigation }) {
                   );
                 })}
               </View>
-
               <View style={{ height: 20 }} />
             </ScrollView>
-
-            {/* Footer Modal (Sticky Buttons) */}
             <View style={styles.modalFooter}>
               <TouchableOpacity style={styles.btnReset} onPress={handleReset}>
                 <Text style={styles.btnResetText}>Reset</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.btnApply}
-                onPress={handleApplyButton}
+                onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.btnApplyText}>Terapkan Filter</Text>
+                <Text style={styles.btnApplyText}>Terapkan</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -332,11 +381,9 @@ export default function SearchScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
-
-  // --- HEADER STYLE ---
   headerContainer: {
     backgroundColor: "white",
-    paddingTop: 30,
+    paddingTop: 45,
     paddingBottom: 15,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -365,11 +412,29 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     elevation: 2,
+    position: "relative",
   },
-
+  activeFilterDot: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#e74c3c",
+    borderWidth: 2,
+    borderColor: "white",
+  },
+  activeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#27ae60",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 15,
+  },
+  activeChipText: { color: "white", fontSize: 12, fontWeight: "bold" },
   emptyContainer: { alignItems: "center", marginTop: 100 },
-
-  // --- MODAL STYLE ---
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -380,7 +445,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
-    maxHeight: height * 0.85, // Maksimal 85% layar
+    maxHeight: height * 0.85,
   },
   modalHeader: {
     flexDirection: "row",
@@ -389,16 +454,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
-
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "bold",
     marginTop: 15,
-    marginBottom: 12,
-    color: "#333",
+    marginBottom: 10,
+    color: "#555",
   },
-
-  // Style untuk Chips (Tipe & Fasilitas)
   optionsRow: { flexDirection: "row", flexWrap: "wrap" },
   optionChip: {
     paddingHorizontal: 16,
@@ -410,14 +472,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: "white",
   },
-  optionChipActive: {
-    backgroundColor: "#e8f5e9",
-    borderColor: "#27ae60",
-  },
+  optionChipActive: { backgroundColor: "#e8f5e9", borderColor: "#27ae60" },
   optionText: { color: "#757575", fontSize: 14 },
   optionTextActive: { color: "#27ae60", fontWeight: "bold" },
-
-  // Style untuk Grid Harga (2 Kolom)
   gridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -433,23 +490,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: "white",
   },
-  gridOptionActive: {
-    backgroundColor: "#e8f5e9",
-    borderColor: "#27ae60",
-  },
+  gridOptionActive: { backgroundColor: "#e8f5e9", borderColor: "#27ae60" },
   gridText: { color: "#757575", fontSize: 14 },
   gridTextActive: { color: "#27ae60", fontWeight: "bold" },
-
-  // Footer Modal
   modalFooter: {
     flexDirection: "row",
     marginTop: 20,
-    paddingTop: 30,
+    paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: "#f0f0f0",
   },
   btnReset: {
-    flex: 1,
+    flex: 0.3,
     paddingVertical: 14,
     borderRadius: 10,
     borderWidth: 1,
@@ -459,7 +511,7 @@ const styles = StyleSheet.create({
   },
   btnResetText: { color: "#757575", fontWeight: "bold" },
   btnApply: {
-    flex: 1,
+    flex: 0.7,
     paddingVertical: 14,
     borderRadius: 10,
     backgroundColor: "#27ae60",

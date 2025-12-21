@@ -1,82 +1,50 @@
 <?php
-// File: api-kos/update_profile.php
-header("Access-Control-Allow-Origin: *");
-// Header Content-Type JSON dihapus karena kita akan menerima FormData, bukan JSON string.
-header("Access-Control-Allow-Methods: POST");
-
 include 'koneksi.php';
 
+$response = array();
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // 1. Ambil ID User (Wajib)
+    $id = $_POST['id'];
     
-    // 1. Ambil data teks dari $_POST (Karena dikirim via FormData)
-    $id    = $_POST['id'];
-    $name  = $_POST['name'];
+    // 2. Ambil data teks lain (Nama, Email, HP, dll)
+    $name = $_POST['name'];
     $email = $_POST['email'];
-    $phone = $_POST['phone'] ?? '';
+    $no_hp = $_POST['no_hp'];
 
-    if (empty($id) || empty($name) || empty($email)) {
-        echo json_encode(["status" => "error", "message" => "Data wajib tidak lengkap"]);
-        exit();
-    }
+    // 3. Cek apakah ada file gambar yang diupload?
+    $gambar_query = ""; 
+    if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] == 0) {
+        $target_dir = "uploads/";
+        $file_name = time() . "_" . basename($_FILES["gambar"]["name"]); // Beri nama unik
+        $target_file = $target_dir . $file_name;
 
-    // 2. Siapkan Query Dasar (Update teks dulu)
-    $queryStr = "UPDATE users SET name = '$name', email = '$email', phone = '$phone'";
-
-    // 3. Cek apakah ada file gambar yang dikirim
-    if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] === UPLOAD_ERR_OK) {
-        
-        $fileTmpPath = $_FILES['gambar']['tmp_name'];
-        $fileName    = $_FILES['gambar']['name'];
-        $fileSize    = $_FILES['gambar']['size'];
-        $fileType    = $_FILES['gambar']['type'];
-        $fileNameCmps = explode(".", $fileName);
-        $fileExtension = strtolower(end($fileNameCmps));
-
-        // Kriteria file yang diperbolehkan
-        $allowedfileExtensions = array('jpg', 'gif', 'png', 'jpeg');
-        
-        if (in_array($fileExtension, $allowedfileExtensions)) {
-            // Buat nama file baru yang unik agar tidak bentrok
-            $newFileName = md5(time() . $fileName) . '.' . $fileExtension;
-            
-            // Folder tujuan upload (Pastikan folder 'uploads' sudah ada di dalam api-kos)
-            $uploadFileDir = './uploads/';
-            $dest_path = $uploadFileDir . $newFileName;
-    
-            if(move_uploaded_file($fileTmpPath, $dest_path)) {
-                // Jika upload sukses, tambahkan update kolom gambar ke query
-                // Kita simpan path relatifnya saja: "uploads/namafile.jpg"
-                $dbPath = 'uploads/' . $newFileName;
-                $queryStr .= ", gambar = '$dbPath'";
-            } else {
-                echo json_encode(["status" => "error", "message" => "Gagal memindahkan file ke folder uploads"]);
-                exit();
-            }
-        } else {
-            echo json_encode(["status" => "error", "message" => "Format file tidak didukung. Gunakan JPG/PNG."]);
-            exit();
+        if (move_uploaded_file($_FILES["gambar"]["tmp_name"], $target_file)) {
+            // Jika sukses upload, siapkan query update gambar
+            $gambar_query = ", gambar='$file_name'";
         }
     }
 
-    // 4. Akhiri Query dengan WHERE
-    $queryStr .= " WHERE id = '$id'";
+    // 4. Query Update Database
+    // Perhatikan: $gambar_query hanya akan terisi jika ada upload foto baru
+    $sql = "UPDATE users SET name='$name', email='$email', no_hp='$no_hp' $gambar_query WHERE id='$id'";
 
-    // 5. Jalankan Query
-    if (mysqli_query($koneksi, $queryStr)) {
-        // Ambil data user terbaru setelah diupdate untuk dikirim balik ke aplikasi
-        $getUser = mysqli_query($koneksi, "SELECT id, name, email, phone, gambar FROM users WHERE id = '$id'");
-        $newData = mysqli_fetch_assoc($getUser);
+    if (mysqli_query($koneksi, $sql)) {
+        // Ambil data terbaru user untuk update AsyncStorage di HP
+        $queryUser = mysqli_query($koneksi, "SELECT * FROM users WHERE id='$id'");
+        $userData = mysqli_fetch_assoc($queryUser);
 
-        echo json_encode([
-            "status" => "success", 
-            "message" => "Profil berhasil diperbarui",
-            "data" => $newData // Kirim data terbaru ke React Native untuk disimpan di AsyncStorage
-        ]);
+        $response['status'] = 'success';
+        $response['message'] = 'Profil berhasil diperbarui';
+        $response['data'] = $userData; // Kirim data terbaru balik ke HP
     } else {
-        echo json_encode(["status" => "error", "message" => "Database error: " . mysqli_error($koneksi)]);
+        $response['status'] = 'error';
+        $response['message'] = 'Gagal update database: ' . mysqli_error($koneksi);
     }
-
 } else {
-    echo json_encode(["status" => "error", "message" => "Invalid request method"]);
+    $response['status'] = 'error';
+    $response['message'] = 'Invalid Request';
 }
+
+echo json_encode($response);
 ?>

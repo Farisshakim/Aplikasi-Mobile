@@ -39,7 +39,6 @@ export default function DetailKosScreen({ route, navigation }) {
     : [];
 
   const FacilityItem = ({ name }) => {
-    // Cari nama icon berdasarkan teks fasilitas, default 'check-circle' kalau gak ketemu
     const iconName = ICON_MAP[name] || "check-circle";
 
     return (

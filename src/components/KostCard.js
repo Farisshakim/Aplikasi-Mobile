@@ -23,7 +23,6 @@ export default function KostCard({ item, onPress }) {
       />
 
       <View style={styles.content}>
-        {/* --- BARIS TAG (HANYA STOK, GENDER DIHAPUS) --- */}
         <View style={styles.tagsRow}>
           {/* Badge Stok Saja */}
           {isFull ? (
@@ -40,7 +39,6 @@ export default function KostCard({ item, onPress }) {
             </View>
           )}
         </View>
-        {/* -------------------------------- */}
 
         <Text style={styles.title} numberOfLines={1}>
           {item.nama_kos}
@@ -73,7 +71,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 15,
     marginHorizontal: 20,
-    // Efek Bayangan (Card Elevation)
     elevation: 4,
     shadowColor: "#000",
     shadowOpacity: 0.1,

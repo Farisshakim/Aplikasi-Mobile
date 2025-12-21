@@ -27,11 +27,25 @@ export default function LoginScreen({ navigation }) {
       const json = await response.json();
 
       if (json.status === "success") {
-        await AsyncStorage.setItem("user_data", JSON.stringify(json.data));
-        Alert.alert("Berhasil", "Selamat datang " + json.data.name);
-        navigation.replace("Home");
-      } else {
-        Alert.alert("Gagal", json.message || "Email/Password salah!");
+        const userData = json.data;
+
+        // Simpan data ke penyimpanan HP
+        await AsyncStorage.setItem("user_data", JSON.stringify(userData));
+
+        // AMBIL ROLE DENGAN AMAN
+        // 1. Cek apakah role ada? Jika tidak, anggap 'penyewa'
+        // 2. Ubah ke huruf kecil semua (antisipasi 'Pemilik')
+        // 3. Hapus spasi di depan/belakang (antisipasi 'pemilik ')
+        const userRole = userData.role
+          ? userData.role.toLowerCase().trim()
+          : "penyewa";
+
+        // LOGIKA PINDAH HALAMAN
+        if (userRole === "pemilik") {
+          navigation.replace("OwnerHome");
+        } else {
+          navigation.replace("Home");
+        }
       }
     } catch (error) {
       console.log(error);
